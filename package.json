@@ -1,0 +1,42 @@
+{
+  "name": "@blackasteroid/mac-cleaner-cli",
+  "version": "0.1.0",
+  "description": "🧹 Open-source macOS CLI to clean dev caches (npm, Homebrew, Docker, Xcode, system, browsers)",
+  "bin": {
+    "mac-cleaner": "dist/index.js"
+  },
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsup src/index.ts --format cjs --dts --banner.js '#!/usr/bin/env node'",
+    "dev": "tsx src/index.ts",
+    "test": "vitest run",
+    "lint": "eslint src/",
+    "prepublishOnly": "npm run build",
+    "release": "semantic-release"
+  },
+  "keywords": ["macos", "cli", "cache", "cleanup", "developer-tools", "homebrew", "npm", "docker"],
+  "author": "BlackAsteroid",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsup": "^8.0.0",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0",
+    "vitest": "^2.0.0"
+  },
+  "dependencies": {
+    "chalk": "^5.0.0",
+    "commander": "^12.0.0",
+    "ora": "^8.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/BlackAsteroid/mac-cleaner-cli.git"
+  }
+}
