@@ -34,7 +34,9 @@ function addCleanOptions(cmd: Command): Command {
   return cmd
     .option("--dry-run", "Show what would be deleted without actually deleting", false)
     .option("--json", "Output results as JSON", false)
-    .option("--verbose, -v", "Show each path as it is cleaned (default: summary table only)", false);
+    .option("-v, --verbose", "Show each path as it is cleaned (default: summary table only)", false)
+    .option("--no-sudo", "Skip privileged paths without prompting for sudo", false)
+    .option("-y, --yes", "Non-interactive mode: skip sudo prompt (CI-safe)", false);
 }
 
 // ─── clean <subcommand> group ───────────────────────────────────────────────

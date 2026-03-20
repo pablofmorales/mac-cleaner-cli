@@ -15,7 +15,16 @@
     "prepublishOnly": "npm run build",
     "release": "semantic-release"
   },
-  "keywords": ["macos", "cli", "cache", "cleanup", "developer-tools", "homebrew", "npm", "docker"],
+  "keywords": [
+    "macos",
+    "cli",
+    "cache",
+    "cleanup",
+    "developer-tools",
+    "homebrew",
+    "npm",
+    "docker"
+  ],
   "author": "BlackAsteroid",
   "license": "MIT",
   "publishConfig": {
@@ -29,6 +38,7 @@
     "vitest": "^2.0.0"
   },
   "dependencies": {
+    "@inquirer/password": "^5.0.10",
     "chalk": "^5.0.0",
     "commander": "^12.0.0",
     "ora": "^8.0.0"
