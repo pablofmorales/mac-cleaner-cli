@@ -90,7 +90,7 @@ function cleanWithTool(
   args: string[],
   errors: string[]
 ): boolean {
-  const which = spawnSync("which", [tool], { encoding: "utf8" });
+  const which = spawnSync("which", [tool], { encoding: "utf8", timeout: 5000 });
   if (which.status !== 0 || !which.stdout.trim()) {
     errors.push(`${tool} not found — skipping`);
     return false;

@@ -25,7 +25,7 @@ function isXcodeInstalled(): boolean {
 }
 
 function cleanSimulators(errors: string[], dryRun: boolean): number {
-  const xcrunPath = spawnSync("which", ["xcrun"], { encoding: "utf8" });
+  const xcrunPath = spawnSync("which", ["xcrun"], { encoding: "utf8", timeout: 5000 });
   if (xcrunPath.status !== 0) {
     errors.push("xcrun not found — cannot clean simulators");
     return 0;
