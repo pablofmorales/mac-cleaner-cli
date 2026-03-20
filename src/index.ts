@@ -2,6 +2,7 @@ import { Command } from "commander";
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
+import chalk from "chalk";
 import { CleanOptions, CleanResult } from "./types.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -210,4 +211,37 @@ addCleanOptions(
   process.exit(result.ok ? 0 : 1);
 });
 
+// ─── upgrade ───────────────────────────────────────────────────────────────
+
+program
+  .command("upgrade")
+  .description("Upgrade mac-cleaner to the latest version from npm")
+  .option("--json", "Output result as JSON", false)
+  .action(async (opts: { json: boolean }) => {
+    const { runUpgrade } = await import("./commands/upgrade.js");
+    await runUpgrade(opts);
+  });
+
+// ─── Version check on startup (no args / --help) ───────────────────────────
+// Only runs when the user invokes with no subcommand and is not piped (TTY check)
+
+const args = process.argv.slice(2);
+const isHelp = args.length === 0 || args[0] === "--help" || args[0] === "-h";
+const isJsonFlag = args.includes("--json");
+const isUpgrade = args[0] === "upgrade";
+
 program.parse(process.argv);
+
+// After parsing, show version check hint if running with no args or --help
+if (isHelp && !isJsonFlag && !isUpgrade && process.stdout.isTTY) {
+  void (async () => {
+    const { getLatestVersionCached, isNewer } = await import("./utils/version.js");
+    const latest = await getLatestVersionCached(2500);
+    if (latest && isNewer(pkg.version, latest)) {
+      console.log(
+        `\n💡 ${chalk.bold("New version available:")} ${chalk.gray(pkg.version)} → ${chalk.green(latest)}` +
+        `\n   Run: ${chalk.bold("npm install -g @blackasteroid/mac-cleaner-cli")} to update\n`
+      );
+    }
+  })();
+}
