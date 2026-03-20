@@ -1,12 +1,14 @@
 import { spawnSync } from "child_process";
 import * as fs from "fs";
+import * as path from "path";
 
 /**
  * Returns the size of a path in bytes using `du -sk`.
  * Returns 0 if path does not exist or du fails.
  */
 export function duBytes(targetPath: string): number {
-  if (!fs.existsSync(targetPath)) return 0;
+  // #27: guard against relative or non-existent paths
+  if (!path.isAbsolute(targetPath) || !fs.existsSync(targetPath)) return 0;
   const result = spawnSync("du", ["-sk", targetPath], { encoding: "utf8" });
   if (result.status !== 0 || !result.stdout) return 0;
   const kb = parseInt(result.stdout.split("\t")[0], 10);

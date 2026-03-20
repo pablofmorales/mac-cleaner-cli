@@ -19,3 +19,27 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm test
+
+  security-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Fail only on HIGH or CRITICAL vulnerabilities
+      - name: npm audit
+        run: npm audit --audit-level=high
+
+      # Run Gitleaks — use installed binary if available, otherwise use npx
+      - name: Gitleaks secret scan
+        run: |
+          if command -v gitleaks &> /dev/null; then
+            gitleaks detect --source . --verbose --redact --no-git
+          else
+            npx gitleaks detect --source . --verbose --redact --no-git
+          fi

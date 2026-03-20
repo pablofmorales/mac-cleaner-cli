@@ -37,7 +37,8 @@ function addCleanOptions(cmd: Command): Command {
     .option("--json", "Output results as JSON", false)
     .option("-v, --verbose", "Show each path as it is cleaned (default: summary table only)", false)
     .option("--no-sudo", "Skip privileged paths without prompting for sudo")
-    .option("-y, --yes", "Non-interactive mode: skip sudo prompt (CI-safe)", false);
+    .option("-y, --yes", "Non-interactive mode: skip sudo prompt (CI-safe)", false)
+    .option("--secure-delete", "Overwrite files with zeros before deletion (macOS only, files only)", false);
 }
 
 // ─── clean <subcommand> group ───────────────────────────────────────────────
@@ -119,15 +120,40 @@ addCleanOptions(
   process.exit(result.ok ? 0 : 1);
 });
 
+// clean keychain
+addCleanOptions(
+  cleanCmd
+    .command("keychain")
+    .description("Audit macOS keychain entries (read-only — nothing deleted)")
+).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
+  const { clean } = await import("./cleaners/keychain.js");
+  const result = await clean(opts as CleanOptions);
+  if (!opts.json) outputResult(result, false);
+  process.exit(result.ok ? 0 : 1);
+});
+
+// clean privacy
+addCleanOptions(
+  cleanCmd
+    .command("privacy")
+    .description("Remove recent files lists, Finder recents, and XDG recent files")
+).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
+  const { clean } = await import("./cleaners/privacy.js");
+  const result = await clean(opts as CleanOptions);
+  outputResult(result, opts.json);
+  process.exit(result.ok ? 0 : 1);
+});
+
 // clean all
 addCleanOptions(
   cleanCmd
     .command("all")
     .description("Run all cleaners in sequence with space recovery summary")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean }) => {
+).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
   const { clean } = await import("./cleaners/all.js");
   const result = await clean(opts as CleanOptions);
-  outputResult(result, opts.json);
+  // all.ts handles its own JSON output (per-module breakdown); skip outputResult for JSON
+  if (!opts.json) outputResult(result, false);
   process.exit(result.ok ? 0 : 1);
 });
 
@@ -202,12 +228,35 @@ addCleanOptions(
 
 addCleanOptions(
   program
-    .command("all")
-    .description("Shorthand for: clean all")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean }) => {
-  const { clean } = await import("./cleaners/all.js");
+    .command("keychain")
+    .description("Shorthand for: clean keychain")
+).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
+  const { clean } = await import("./cleaners/keychain.js");
+  const result = await clean(opts as CleanOptions);
+  if (!opts.json) outputResult(result, false);
+  process.exit(result.ok ? 0 : 1);
+});
+
+addCleanOptions(
+  program
+    .command("privacy")
+    .description("Shorthand for: clean privacy")
+).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
+  const { clean } = await import("./cleaners/privacy.js");
   const result = await clean(opts as CleanOptions);
   outputResult(result, opts.json);
+  process.exit(result.ok ? 0 : 1);
+});
+
+addCleanOptions(
+  program
+    .command("all")
+    .description("Shorthand for: clean all")
+).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
+  const { clean } = await import("./cleaners/all.js");
+  const result = await clean(opts as CleanOptions);
+  // all.ts handles its own JSON output (per-module breakdown); skip outputResult for JSON
+  if (!opts.json) outputResult(result, false);
   process.exit(result.ok ? 0 : 1);
 });
 
