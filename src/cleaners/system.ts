@@ -32,7 +32,13 @@ function getSubdirectories(dirPath: string): string[] {
 
 function secureOverwriteFile(filePath: string): void {
   try {
-    spawnSync("dd", ["if=/dev/zero", `of=${filePath}`, "bs=1024", "count=1"], { timeout: 5000 });
+    // Security fix (Gerard HIGH): overwrite the FULL file size, not just 1KB.
+    // Using fs.writeFileSync with a zero-filled Buffer — more idiomatic in Node.js
+    // and doesn't depend on `dd` being available.
+    const stat = fs.statSync(filePath);
+    if (stat.isFile() && stat.size > 0) {
+      fs.writeFileSync(filePath, Buffer.alloc(stat.size));
+    }
   } catch {
     // best-effort — continue with deletion even if overwrite fails
   }

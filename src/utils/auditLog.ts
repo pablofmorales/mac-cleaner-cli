@@ -1,17 +1,13 @@
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
-import { createRequire } from "module";
-import { fileURLToPath } from "url";
-import { dirname } from "path";
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const require = createRequire(import.meta.url);
 
 function getVersion(): string {
   try {
-    const pkg = require(path.join(__dirname, "..", "..", "package.json")) as { version: string };
-    return pkg.version;
+    // Use new URL() + readFileSync — idiomatic ESM, no require() needed
+    const pkgUrl = new URL("../../package.json", import.meta.url);
+    const raw = fs.readFileSync(pkgUrl, "utf8");
+    return (JSON.parse(raw) as { version: string }).version;
   } catch {
     return "unknown";
   }

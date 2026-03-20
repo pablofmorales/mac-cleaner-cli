@@ -88,7 +88,10 @@ export async function clean(options: CleanOptions): Promise<CleanResult> {
           if (options.verbose && !options.json) {
             console.log(chalk.gray(`    [secure-delete] overwriting ${p}`));
           }
-          spawnSync("dd", ["if=/dev/zero", `of=${p}`, "bs=1024", "count=1"], { timeout: 5000 });
+          // Security fix (Gerard HIGH): overwrite full file size using Node.js Buffer
+          if (stat && stat.size > 0) {
+            try { fs.writeFileSync(p, Buffer.alloc(stat.size)); } catch { /* best-effort */ }
+          }
         }
       }
       fs.rmSync(p, { recursive: true, force: true });
