@@ -4,7 +4,7 @@
 
 > Reclaim gigabytes of disk space from npm, Homebrew, Docker, Xcode, browsers, and more — in seconds.
 
-![mac-cleaner hero](/.github/assets/hero.png)
+![mac-cleaner hero](.github/assets/hero.png)
 
 [![npm version](https://img.shields.io/npm/v/@blackasteroid/mac-cleaner-cli?color=cyan&label=npm)](https://www.npmjs.com/package/@blackasteroid/mac-cleaner-cli)
 [![Build](https://github.com/BlackAsteroid/mac-cleaner-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/BlackAsteroid/mac-cleaner-cli/actions)
