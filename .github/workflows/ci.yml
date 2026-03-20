@@ -41,5 +41,5 @@ jobs:
           if command -v gitleaks &> /dev/null; then
             gitleaks detect --source . --verbose --redact --no-git
           else
-            npx gitleaks detect --source . --verbose --redact --no-git
+            echo "gitleaks not available via npx — install manually or use the gitleaks GitHub Action for scanning"
           fi
