@@ -6,7 +6,7 @@ import { formatBytes } from "../utils/du.js";
 import { renderSummaryTable } from "../utils/format.js";
 
 function findDockerPath(): string | null {
-  const which = spawnSync("which", ["docker"], { encoding: "utf8" });
+  const which = spawnSync("which", ["docker"], { encoding: "utf8", timeout: 5000 });
   if (which.status === 0 && which.stdout.trim()) return which.stdout.trim();
   return null;
 }

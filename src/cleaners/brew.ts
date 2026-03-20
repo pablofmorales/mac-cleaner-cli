@@ -8,11 +8,11 @@ import { renderSummaryTable } from "../utils/format.js";
 function findBrewPath(): string | null {
   const candidates = ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"];
   for (const p of candidates) {
-    const result = spawnSync("test", ["-x", p], { shell: false });
+    const result = spawnSync("test", ["-x", p], { shell: false, timeout: 3000 });
     if (result.status === 0) return p;
   }
-  // Try which
-  const which = spawnSync("which", ["brew"], { encoding: "utf8" });
+  // Try which — with timeout to prevent hanging on broken PATH
+  const which = spawnSync("which", ["brew"], { encoding: "utf8", timeout: 5000 });
   if (which.status === 0 && which.stdout.trim()) return which.stdout.trim();
   return null;
 }
@@ -33,13 +33,13 @@ export async function clean(options: CleanOptions): Promise<CleanResult> {
   if (spinner) spinner.text = "Getting Homebrew cache size...";
 
   // Get cache path
-  const cacheResult = spawnSync(brewPath, ["--cache"], { encoding: "utf8" });
+  const cacheResult = spawnSync(brewPath, ["--cache"], { encoding: "utf8", timeout: 5000 });
   const cachePath = cacheResult.stdout.trim();
 
   // Get size before cleanup
   let sizeBefore = 0;
   if (cachePath) {
-    const duResult = spawnSync("du", ["-sk", cachePath], { encoding: "utf8" });
+    const duResult = spawnSync("du", ["-sk", cachePath], { encoding: "utf8", timeout: 10000 });
     if (duResult.stdout) {
       const kb = parseInt(duResult.stdout.split("\t")[0], 10);
       if (!isNaN(kb)) sizeBefore = kb * 1024;
