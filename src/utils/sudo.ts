@@ -11,18 +11,22 @@ import { isPrivilegedPath } from "./privilegedPaths.js";
  */
 export async function promptSudoPassword(paths: string[]): Promise<string> {
   return new Promise((resolve) => {
-    process.stdout.write(`\n  🔒 ${paths.length} path(s) require elevated privileges:\n`);
+    // Fix #48: write prompt to stderr to avoid interference with ora spinner
+    // output buffering on stdout. stderr is unbuffered and always visible.
+    process.stderr.write(`\n  🔒 ${paths.length} path(s) require elevated privileges:\n`);
     for (const p of paths.slice(0, 5)) {
-      process.stdout.write(`     ${p}\n`);
+      process.stderr.write(`     ${p}\n`);
     }
     if (paths.length > 5) {
-      process.stdout.write(`     ... and ${paths.length - 5} more\n`);
+      process.stderr.write(`     ... and ${paths.length - 5} more\n`);
     }
-    process.stdout.write("\n  Enter sudo password to include these (or press Enter to skip): ");
+    process.stderr.write("\n  Enter sudo password to include these (or press Enter to skip): ");
 
+    // Fix #48: use stderr for output so readline doesn't write to stdout
+    // and interfere with ora spinner's ANSI control sequences
     const rl = readline.createInterface({
       input: process.stdin,
-      output: process.stdout,
+      output: process.stderr,
       terminal: true,
     });
 
@@ -43,7 +47,7 @@ export async function promptSudoPassword(paths: string[]): Promise<string> {
         }
         process.stdin.removeListener("data", onData);
         rl.close();
-        process.stdout.write("\n");
+        process.stderr.write("\n");
         resolve(password);
       } else if (ch === "\u0003") {
         // Ctrl+C
@@ -52,17 +56,17 @@ export async function promptSudoPassword(paths: string[]): Promise<string> {
         }
         process.stdin.removeListener("data", onData);
         rl.close();
-        process.stdout.write("\n");
+        process.stderr.write("\n");
         resolve(""); // treat as skip
       } else if (ch === "\u007f" || ch === "\b") {
         // Backspace
         if (password.length > 0) {
           password = password.slice(0, -1);
-          process.stdout.write("\b \b");
+          process.stderr.write("\b \b");
         }
       } else {
         password += ch;
-        process.stdout.write("•");
+        process.stderr.write("•");
       }
     };
 

@@ -132,6 +132,12 @@ export async function clean(options: CleanOptions): Promise<CleanResult> {
   const skipSudo = options.noSudo || options.yes || !process.stdin.isTTY;
 
   if (privilegedPaths.length > 0 && !skipSudo && !options.json) {
+    // Fix #48: stop the spinner BEFORE showing the sudo prompt.
+    // ora writes ANSI escape sequences to stdout that overwrite the current line,
+    // making any subsequent prompt text invisible. Stopping it first clears
+    // the spinner line and lets the prompt render correctly.
+    if (spinner) spinner.stop();
+
     // Prompt once for sudo password
     const password = await promptSudoPassword(privilegedPaths);
 

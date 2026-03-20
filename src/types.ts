@@ -1,7 +1,7 @@
 export interface CleanOptions {
   dryRun: boolean;
   json: boolean;
-  verbose: boolean;
+  verbose?: boolean;
   /** Skip sudo prompt and privileged paths entirely */
   noSudo?: boolean;
   /** Non-interactive mode (CI-safe) — same as --no-sudo */
