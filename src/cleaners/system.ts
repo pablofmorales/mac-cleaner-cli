@@ -6,14 +6,7 @@ import chalk from "chalk";
 import ora from "ora";
 import { CleanOptions, CleanResult } from "../types.js";
 import { duBytes, formatBytes } from "../utils/du.js";
-
-const SYSTEM_PATHS = [
-  path.join(os.homedir(), "Library", "Caches"),
-  "/tmp",
-  "/private/tmp",
-  "/var/log",
-  path.join(os.homedir(), "Library", "Logs"),
-];
+import { renderSummaryTable, verboseLine } from "../utils/format.js";
 
 function getSubdirectories(dirPath: string): string[] {
   if (!fs.existsSync(dirPath)) return [];
@@ -22,7 +15,8 @@ function getSubdirectories(dirPath: string): string[] {
       .map((name) => path.join(dirPath, name))
       .filter((p) => {
         try {
-          return fs.statSync(p).isDirectory() || fs.statSync(p).isFile();
+          const stat = fs.statSync(p);
+          return stat.isDirectory() || stat.isFile();
         } catch {
           return false;
         }
@@ -52,39 +46,34 @@ export async function clean(options: CleanOptions): Promise<CleanResult> {
   // Collect all candidate paths
   const candidates: string[] = [];
 
-  // ~/Library/Caches subdirectories
   const userCaches = path.join(os.homedir(), "Library", "Caches");
   candidates.push(...getSubdirectories(userCaches));
-
-  // /tmp contents
   candidates.push(...getSubdirectories("/tmp"));
   candidates.push(...getSubdirectories("/private/tmp"));
 
-  // System logs
+  // System logs — only .log files (permission-safe)
   if (fs.existsSync("/var/log")) {
-    // Only remove .log files, not directories
     try {
       const logFiles = fs.readdirSync("/var/log")
         .map((f) => path.join("/var/log", f))
         .filter((f) => f.endsWith(".log") || f.endsWith(".log.gz"));
       candidates.push(...logFiles);
     } catch {
-      // permission denied, skip silently
+      // permission denied — skip silently
     }
   }
 
-  // ~/Library/Logs subdirectories
   const userLogs = path.join(os.homedir(), "Library", "Logs");
   candidates.push(...getSubdirectories(userLogs));
 
-  if (spinner) spinner.text = `Found ${candidates.length} items to clean`;
+  if (spinner) spinner.text = `Found ${candidates.length} items to scan`;
 
   if (options.dryRun) {
-    if (spinner) spinner.succeed(chalk.yellow("Dry run — nothing deleted"));
+    if (spinner) spinner.succeed(chalk.yellow("✔ Dry run — nothing deleted"));
     for (const p of candidates) {
       const size = duBytes(p);
-      if (!options.json) {
-        console.log(chalk.gray(`  [dry-run] ${p} (${formatBytes(size)})`));
+      if (options.verbose && !options.json) {
+        verboseLine("system", p, size, true);
       }
       cleanedPaths.push(p);
       freed += size;
@@ -93,13 +82,15 @@ export async function clean(options: CleanOptions): Promise<CleanResult> {
     if (spinner) spinner.text = "Cleaning system caches...";
     for (const p of candidates) {
       const size = removePathSafe(p, errors);
-      if (size > 0 || fs.existsSync(p) === false) {
+      if (size > 0 || !fs.existsSync(p)) {
+        if (options.verbose && !options.json) {
+          verboseLine("system", p, size, false);
+        }
         cleanedPaths.push(p);
         freed += size;
       }
     }
 
-    // Also run periodic scripts if available (macOS)
     const periodic = spawnSync("periodic", ["daily", "weekly", "monthly"], {
       encoding: "utf8",
       timeout: 30000,
@@ -108,7 +99,19 @@ export async function clean(options: CleanOptions): Promise<CleanResult> {
       errors.push("periodic scripts not available (non-fatal)");
     }
 
-    if (spinner) spinner.succeed(chalk.green(`System cleaned — freed ${formatBytes(freed)}`));
+    if (spinner) spinner.succeed(chalk.green("✔ System cleaned"));
+  }
+
+  if (!options.json && !(options as any)._suppressTable) {
+    renderSummaryTable([
+      {
+        module: "System",
+        paths: cleanedPaths.length,
+        freed,
+        status: options.dryRun ? "would_free" : "freed",
+        warnings: errors.length,
+      },
+    ], options.dryRun);
   }
 
   if (errors.length > 0 && !options.json) {

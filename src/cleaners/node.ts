@@ -6,6 +6,7 @@ import chalk from "chalk";
 import ora from "ora";
 import { CleanOptions, CleanResult } from "../types.js";
 import { duBytes, formatBytes } from "../utils/du.js";
+import { renderSummaryTable, verboseLine } from "../utils/format.js";
 
 const NPM_CACHE_PATHS = [
   path.join(os.homedir(), ".npm"),
@@ -125,25 +126,28 @@ export async function clean(options: NodeCleanOptions): Promise<CleanResult> {
   const orphans = findOrphanNodeModules(os.homedir(), 3);
 
   if (options.dryRun) {
-    if (spinner) spinner.succeed(chalk.yellow("Dry run — nothing deleted"));
+    if (spinner) spinner.succeed(chalk.yellow("✔ Dry run — nothing deleted"));
     for (const p of allCachePaths) {
       const size = duBytes(p);
-      if (!options.json) {
-        console.log(chalk.gray(`  [dry-run] [cache] ${p} (${formatBytes(size)})`));
+      if (options.verbose && !options.json) {
+        verboseLine("cache", p, size, true);
       }
       cleanedPaths.push(p);
       freed += size;
     }
     for (const p of orphans) {
       const size = duBytes(p);
-      if (!options.json) {
+      if (options.verbose && !options.json) {
         const action = options.includeOrphans ? "[dry-run, would delete]" : "[dry-run, use --include-orphans to delete]";
-        console.log(chalk.gray(`  ${action} [orphan node_modules] ${p} (${formatBytes(size)})`));
+        console.log(chalk.gray(`  ${action} [orphan] ${p} (${formatBytes(size)})`));
       }
       if (options.includeOrphans) {
         cleanedPaths.push(p);
         freed += size;
       }
+    }
+    if (!options.json && !(options as any)._suppressTable) {
+      renderSummaryTable([{ module: "Node", paths: cleanedPaths.length, freed, status: "would_free", warnings: errors.length }], true);
     }
     return { ok: true, paths: cleanedPaths, freed, errors };
   }
@@ -174,7 +178,7 @@ export async function clean(options: NodeCleanOptions): Promise<CleanResult> {
           fs.rmSync(orphan, { recursive: true, force: true });
           cleanedPaths.push(orphan);
           freed += size;
-          if (!options.json) {
+          if (!options.json && !(options as any)._suppressTable) {
             console.log(chalk.gray(`  removed orphan: ${orphan} (${formatBytes(size)})`));
           }
         } catch (err) {
@@ -182,8 +186,8 @@ export async function clean(options: NodeCleanOptions): Promise<CleanResult> {
         }
       }
     } else {
-      // Warn but don't delete
-      if (!options.json) {
+      // Warn but don't delete — always visible (not gated by verbose)
+      if (!options.json && !(options as any)._suppressTable) {
         console.log(chalk.yellow(`\n  ⚠️  Found ${orphans.length} orphan node_modules (not deleted — run with --include-orphans to remove):`));
         for (const orphan of orphans) {
           const size = duBytes(orphan);
@@ -197,7 +201,11 @@ export async function clean(options: NodeCleanOptions): Promise<CleanResult> {
   const sizeAfter = allCachePaths.reduce((sum, p) => sum + duBytes(p), 0);
   freed += Math.max(0, sizeBefore - sizeAfter);
 
-  if (spinner) spinner.succeed(chalk.green(`Node cleaned — freed ${formatBytes(freed)}`));
+  if (spinner) spinner.succeed(chalk.green("✔ Node cleaned"));
+
+  if (!options.json && !(options as any)._suppressTable) {
+    renderSummaryTable([{ module: "Node", paths: cleanedPaths.length, freed, status: "freed", warnings: errors.length }]);
+  }
 
   if (errors.length > 0 && !options.json) {
     for (const e of errors) {

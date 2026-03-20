@@ -33,7 +33,8 @@ function outputResult(result: CleanResult, jsonMode: boolean): void {
 function addCleanOptions(cmd: Command): Command {
   return cmd
     .option("--dry-run", "Show what would be deleted without actually deleting", false)
-    .option("--json", "Output results as JSON", false);
+    .option("--json", "Output results as JSON", false)
+    .option("--verbose, -v", "Show each path as it is cleaned (default: summary table only)", false);
 }
 
 // ─── clean <subcommand> group ───────────────────────────────────────────────
@@ -72,7 +73,7 @@ addCleanOptions(
     .command("node")
     .description("Clean npm/yarn/pnpm caches and orphan node_modules")
     .option("--include-orphans", "Also delete orphan node_modules (use carefully in monorepos)", false)
-).action(async (opts: { dryRun: boolean; json: boolean; includeOrphans: boolean }) => {
+).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; includeOrphans: boolean }) => {
   const { clean } = await import("./cleaners/node.js");
   const result = await clean(opts);
   outputResult(result, opts.json);
@@ -156,7 +157,7 @@ addCleanOptions(
     .command("node")
     .description("Shorthand for: clean node")
     .option("--include-orphans", "Also delete orphan node_modules (use carefully in monorepos)", false)
-).action(async (opts: { dryRun: boolean; json: boolean; includeOrphans: boolean }) => {
+).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; includeOrphans: boolean }) => {
   const { clean } = await import("./cleaners/node.js");
   const result = await clean(opts);
   outputResult(result, opts.json);

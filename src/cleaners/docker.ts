@@ -3,6 +3,7 @@ import chalk from "chalk";
 import ora from "ora";
 import { CleanOptions, CleanResult } from "../types.js";
 import { formatBytes } from "../utils/du.js";
+import { renderSummaryTable } from "../utils/format.js";
 
 function findDockerPath(): string | null {
   const which = spawnSync("which", ["docker"], { encoding: "utf8" });
@@ -58,13 +59,16 @@ export async function clean(options: CleanOptions): Promise<CleanResult> {
   }
 
   if (options.dryRun) {
-    if (spinner) spinner.succeed(chalk.yellow("Dry run — would run: docker system prune -af --volumes"));
+    if (spinner) spinner.succeed(chalk.yellow("✔ Dry run — nothing deleted"));
     const reclaimable = dockerDiskUsage(dockerPath);
     freed = reclaimable;
     cleanedPaths.push("docker://containers", "docker://images", "docker://volumes", "docker://build-cache");
-    if (!options.json) {
+    if (options.verbose && !options.json) {
       console.log(chalk.gray(`  [dry-run] docker system prune -af --volumes`));
       console.log(chalk.gray(`  [dry-run] estimated reclaimable: ${formatBytes(reclaimable)}`));
+    }
+    if (!options.json && !(options as any)._suppressTable) {
+      renderSummaryTable([{ module: "Docker", paths: cleanedPaths.length, freed, status: "would_free", warnings: errors.length }], true);
     }
     return { ok: true, paths: cleanedPaths, freed, errors };
   }
@@ -137,7 +141,11 @@ export async function clean(options: CleanOptions): Promise<CleanResult> {
     errors.push(`docker builder prune failed: ${buildCache.stderr}`);
   }
 
-  if (spinner) spinner.succeed(chalk.green(`Docker cleaned — freed ${formatBytes(freed)}`));
+  if (spinner) spinner.succeed(chalk.green("✔ Docker cleaned"));
+
+  if (!options.json && !(options as any)._suppressTable) {
+    renderSummaryTable([{ module: "Docker", paths: cleanedPaths.length, freed, status: "freed", warnings: errors.length }]);
+  }
 
   if (errors.length > 0 && !options.json) {
     for (const e of errors) {

@@ -6,6 +6,7 @@ import chalk from "chalk";
 import ora from "ora";
 import { CleanOptions, CleanResult } from "../types.js";
 import { duBytes, formatBytes } from "../utils/du.js";
+import { renderSummaryTable, verboseLine } from "../utils/format.js";
 
 const home = os.homedir();
 
@@ -75,23 +76,25 @@ export async function clean(options: CleanOptions): Promise<CleanResult> {
   }
 
   if (options.dryRun) {
-    if (spinner) spinner.succeed(chalk.yellow("Dry run — nothing deleted"));
+    if (spinner) spinner.succeed(chalk.yellow("✔ Dry run — nothing deleted"));
     for (const p of targetPaths) {
       if (fs.existsSync(p)) {
         const size = duBytes(p);
-        if (!options.json) {
-          console.log(chalk.gray(`  [dry-run] ${p} (${formatBytes(size)})`));
+        if (options.verbose && !options.json) {
+          verboseLine("xcode", p, size, true);
         }
         cleanedPaths.push(p);
         freed += size;
       }
     }
-    // Simulators
     const simSize = cleanSimulators(errors, true);
-    if (simSize > 0 && !options.json) {
+    if (simSize > 0 && options.verbose && !options.json) {
       console.log(chalk.gray(`  [dry-run] unavailable simulators (~${formatBytes(simSize)})`));
     }
     freed += simSize;
+    if (!options.json && !(options as any)._suppressTable) {
+      renderSummaryTable([{ module: "Xcode", paths: cleanedPaths.length, freed, status: "would_free", warnings: errors.length }], true);
+    }
     return { ok: true, paths: cleanedPaths, freed, errors };
   }
 
@@ -104,8 +107,8 @@ export async function clean(options: CleanOptions): Promise<CleanResult> {
         fs.rmSync(p, { recursive: true, force: true });
         cleanedPaths.push(p);
         freed += size;
-        if (!options.json) {
-          console.log(chalk.gray(`  removed: ${p} (${formatBytes(size)})`));
+        if (options.verbose && !options.json) {
+          verboseLine("xcode", p, size, false);
         }
       } catch (err) {
         errors.push(`Failed to remove ${p}: ${(err as Error).message}`);
@@ -113,7 +116,6 @@ export async function clean(options: CleanOptions): Promise<CleanResult> {
     }
   }
 
-  // Clean unavailable simulators
   if (spinner) spinner.text = "Removing unavailable simulators...";
   const simFreed = cleanSimulators(errors, false);
   freed += simFreed;
@@ -121,7 +123,11 @@ export async function clean(options: CleanOptions): Promise<CleanResult> {
     cleanedPaths.push("xcode://simulators/unavailable");
   }
 
-  if (spinner) spinner.succeed(chalk.green(`Xcode cleaned — freed ${formatBytes(freed)}`));
+  if (spinner) spinner.succeed(chalk.green("✔ Xcode cleaned"));
+
+  if (!options.json && !(options as any)._suppressTable) {
+    renderSummaryTable([{ module: "Xcode", paths: cleanedPaths.length, freed, status: "freed", warnings: errors.length }]);
+  }
 
   if (errors.length > 0 && !options.json) {
     for (const e of errors) {

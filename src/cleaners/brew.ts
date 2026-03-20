@@ -3,6 +3,7 @@ import chalk from "chalk";
 import ora from "ora";
 import { CleanOptions, CleanResult } from "../types.js";
 import { formatBytes } from "../utils/du.js";
+import { renderSummaryTable } from "../utils/format.js";
 
 function findBrewPath(): string | null {
   const candidates = ["/opt/homebrew/bin/brew", "/usr/local/bin/brew"];
@@ -46,13 +47,16 @@ export async function clean(options: CleanOptions): Promise<CleanResult> {
   }
 
   if (options.dryRun) {
-    if (spinner) spinner.succeed(chalk.yellow("Dry run — would run: brew cleanup --prune=all && brew autoremove"));
+    if (spinner) spinner.succeed(chalk.yellow("✔ Dry run — nothing deleted"));
     if (cachePath) {
       cleanedPaths.push(cachePath);
       freed = sizeBefore;
-      if (!options.json) {
+      if (options.verbose && !options.json) {
         console.log(chalk.gray(`  [dry-run] brew cache: ${cachePath} (${formatBytes(sizeBefore)})`));
       }
+    }
+    if (!options.json && !(options as any)._suppressTable) {
+      renderSummaryTable([{ module: "Brew", paths: cleanedPaths.length, freed, status: "would_free", warnings: errors.length }], true);
     }
     return { ok: true, paths: cleanedPaths, freed, errors };
   }
@@ -93,7 +97,11 @@ export async function clean(options: CleanOptions): Promise<CleanResult> {
 
   freed = Math.max(0, sizeBefore - sizeAfter);
 
-  if (spinner) spinner.succeed(chalk.green(`Brew cleaned — freed ${formatBytes(freed)}`));
+  if (spinner) spinner.succeed(chalk.green("✔ Brew cleaned"));
+
+  if (!options.json && !(options as any)._suppressTable) {
+    renderSummaryTable([{ module: "Brew", paths: cleanedPaths.length, freed, status: "freed", warnings: errors.length }]);
+  }
 
   if (errors.length > 0 && !options.json) {
     for (const e of errors) {

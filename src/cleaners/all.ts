@@ -1,6 +1,6 @@
 import chalk from "chalk";
 import { CleanOptions, CleanResult } from "../types.js";
-import { formatBytes } from "../utils/du.js";
+import { renderSummaryTable, SummaryRow } from "../utils/format.js";
 import * as system from "./system.js";
 import * as brew from "./brew.js";
 import * as node from "./node.js";
@@ -13,14 +13,20 @@ interface ModuleResult {
   result: CleanResult;
 }
 
+// Suppress the individual module summary tables when running `clean all`
+// by passing a special flag — we render one unified table at the end
+type AllCleanOptions = CleanOptions & { _suppressTable?: boolean };
+
 export async function clean(options: CleanOptions): Promise<CleanResult> {
-  const modules: Array<{ name: string; cleaner: typeof system }> = [
-    { name: "system", cleaner: system },
-    { name: "brew", cleaner: brew },
-    { name: "node", cleaner: node },
-    { name: "browser", cleaner: browser },
-    { name: "docker", cleaner: docker },
-    { name: "xcode", cleaner: xcode },
+  const subOptions: AllCleanOptions = { ...options, _suppressTable: true };
+
+  const modules: Array<{ label: string; cleaner: typeof system }> = [
+    { label: "System",  cleaner: system },
+    { label: "Brew",    cleaner: brew },
+    { label: "Node",    cleaner: node },
+    { label: "Browser", cleaner: browser },
+    { label: "Docker",  cleaner: docker },
+    { label: "Xcode",   cleaner: xcode },
   ];
 
   const results: ModuleResult[] = [];
@@ -28,38 +34,32 @@ export async function clean(options: CleanOptions): Promise<CleanResult> {
   const allPaths: string[] = [];
   const allErrors: string[] = [];
 
-  for (const { name, cleaner } of modules) {
+  for (const { label, cleaner } of modules) {
     if (!options.json) {
-      console.log(chalk.bold.blue(`\n━━━ ${name.toUpperCase()} ━━━`));
+      process.stdout.write(chalk.gray(`  Running ${label.toLowerCase()} cleaner...`));
     }
-    const result = await cleaner.clean(options);
-    results.push({ name, result });
+    const result = await cleaner.clean(subOptions);
+    results.push({ name: label, result });
     totalFreed += result.freed;
     allPaths.push(...result.paths);
     allErrors.push(...result.errors);
+    if (!options.json) {
+      process.stdout.write(chalk.green(" ✔\n"));
+    }
   }
 
-  // Print summary table
+  // Unified summary table for all modules
   if (!options.json) {
-    console.log(chalk.bold("\n┌─────────────────────────────────────────┐"));
-    console.log(chalk.bold("│           SPACE RECOVERY SUMMARY         │"));
-    console.log(chalk.bold("├────────────────┬────────────────────────┤"));
-    console.log(chalk.bold("│ Module         │ Freed                  │"));
-    console.log(chalk.bold("├────────────────┼────────────────────────┤"));
-
-    for (const { name, result } of results) {
-      const freed = formatBytes(result.freed);
-      const nameCol = name.padEnd(14);
-      const freedCol = freed.padEnd(22);
-      const statusIcon = result.ok ? chalk.green("✓") : chalk.red("✗");
-      console.log(`│ ${statusIcon} ${nameCol} │ ${chalk.green(freedCol)} │`);
-    }
-
-    console.log(chalk.bold("├────────────────┼────────────────────────┤"));
-    const totalCol = "TOTAL".padEnd(14);
-    const totalFreedStr = formatBytes(totalFreed).padEnd(22);
-    console.log(`│ ${chalk.bold(totalCol)} │ ${chalk.bold.green(totalFreedStr)} │`);
-    console.log(chalk.bold("└────────────────┴────────────────────────┘"));
+    const rows: SummaryRow[] = results.map(({ name, result }) => ({
+      module: name,
+      paths: result.paths.length,
+      freed: result.freed,
+      status: result.ok
+        ? options.dryRun ? "would_free" : "freed"
+        : "error",
+      warnings: result.errors.length,
+    }));
+    renderSummaryTable(rows, options.dryRun);
   }
 
   return {

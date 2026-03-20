@@ -1,6 +1,7 @@
 export interface CleanOptions {
   dryRun: boolean;
   json: boolean;
+  verbose: boolean;
 }
 
 export interface CleanResult {
