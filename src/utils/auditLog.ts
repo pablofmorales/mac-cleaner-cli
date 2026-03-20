@@ -1,12 +1,15 @@
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
+import { fileURLToPath } from "url";
+import { dirname } from "path";
+
+// dist/utils/auditLog.js → dist/../package.json (one level up from dist/)
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 function getVersion(): string {
   try {
-    // Use new URL() + readFileSync — idiomatic ESM, no require() needed
-    const pkgUrl = new URL("../../package.json", import.meta.url);
-    const raw = fs.readFileSync(pkgUrl, "utf8");
+    const raw = fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8");
     return (JSON.parse(raw) as { version: string }).version;
   } catch {
     return "unknown";

@@ -128,7 +128,7 @@ addCleanOptions(
 ).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
   const { clean } = await import("./cleaners/keychain.js");
   const result = await clean(opts as CleanOptions);
-  if (!opts.json) outputResult(result, false);
+  outputResult(result, opts.json);
   process.exit(result.ok ? 0 : 1);
 });
 
@@ -233,7 +233,7 @@ addCleanOptions(
 ).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
   const { clean } = await import("./cleaners/keychain.js");
   const result = await clean(opts as CleanOptions);
-  if (!opts.json) outputResult(result, false);
+  outputResult(result, opts.json);
   process.exit(result.ok ? 0 : 1);
 });
 
