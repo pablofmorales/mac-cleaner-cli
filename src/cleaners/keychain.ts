@@ -81,7 +81,9 @@ export async function clean(options: CleanOptions): Promise<CleanResult> {
       },
       error: errors.length ? errors : null,
     };
-    console.log(JSON.stringify(output));
+    // BUG-01 fix: don't print JSON directly here — index.ts/outputResult handles
+    // all JSON output uniformly. Standalone console.log breaks clean all --json.
+    void output; // used for type-checking only
   }
 
   const result: CleanResult = {
