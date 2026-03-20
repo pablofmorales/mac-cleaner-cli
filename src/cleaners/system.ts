@@ -167,13 +167,19 @@ export async function clean(options: CleanOptions): Promise<CleanResult> {
     }
   }
 
-  // Run periodic scripts (best-effort)
-  spawnSync("periodic", ["daily", "weekly", "monthly"], { encoding: "utf8", timeout: 30000 });
+  // Run periodic scripts — capped at 10s to prevent long hangs
+  // periodic can block if another periodic run is already in progress
+  spawnSync("periodic", ["daily", "weekly", "monthly"], { encoding: "utf8", timeout: 10000 });
 
   // ── Privileged paths ─────────────────────────────────────────────────────
   const skipSudo = options.noSudo || options.yes || !process.stdin.isTTY;
 
   if (privilegedPaths.length > 0 && !skipSudo && !options.json) {
+    // Fix: stop the spinner BEFORE showing the sudo prompt.
+    // ora's animation overwrites the current terminal line,
+    // making the password prompt invisible if the spinner is still running.
+    if (spinner) spinner.stop();
+
     // Prompt once for sudo password — returns Buffer for zeroization
     const passwordBuf = await promptSudoPassword(privilegedPaths);
 
@@ -210,6 +216,8 @@ export async function clean(options: CleanOptions): Promise<CleanResult> {
   }
 
   freed += privilegedFreed;
+  // Restart spinner after sudo interaction so succeed() renders cleanly
+  if (spinner && !options.json) spinner.start();
 
   if (spinner) spinner.succeed(chalk.green("System cleaned"));
 
