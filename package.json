@@ -2,12 +2,13 @@
   "name": "@blackasteroid/mac-cleaner-cli",
   "version": "0.1.0",
   "description": "🧹 Open-source macOS CLI to clean dev caches (npm, Homebrew, Docker, Xcode, system, browsers)",
+  "type": "module",
   "bin": {
     "mac-cleaner": "dist/index.js"
   },
   "main": "dist/index.js",
   "scripts": {
-    "build": "tsup src/index.ts --format cjs --dts --banner.js '#!/usr/bin/env node'",
+    "build": "tsup",
     "dev": "tsx src/index.ts",
     "test": "vitest run",
     "lint": "eslint src/",
