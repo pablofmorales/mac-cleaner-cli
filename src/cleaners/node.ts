@@ -7,6 +7,7 @@ import ora from "ora";
 import { CleanOptions, CleanResult } from "../types.js";
 import { duBytes, formatBytes } from "../utils/du.js";
 import { renderSummaryTable, verboseLine } from "../utils/format.js";
+import { isSafeToDelete } from "../utils/safeDelete.js";
 
 const NPM_CACHE_PATHS = [
   path.join(os.homedir(), ".npm"),
@@ -173,13 +174,18 @@ export async function clean(options: NodeCleanOptions): Promise<CleanResult> {
     if (options.includeOrphans) {
       if (spinner) spinner.text = `Removing ${orphans.length} orphan node_modules...`;
       for (const orphan of orphans) {
+        // Security (#43): resolve symlinks before deletion to prevent traversal attacks
+        if (!isSafeToDelete(orphan, os.homedir())) {
+          errors.push(`Skipped (symlink escape detected): ${orphan}`);
+          continue;
+        }
         const size = duBytes(orphan);
         try {
           fs.rmSync(orphan, { recursive: true, force: true });
           cleanedPaths.push(orphan);
           freed += size;
-          if (!options.json && !(options as any)._suppressTable) {
-            console.log(chalk.gray(`  removed orphan: ${orphan} (${formatBytes(size)})`));
+          if (options.verbose && !options.json && !(options as any)._suppressTable) {
+            verboseLine("orphan", orphan, size, false);
           }
         } catch (err) {
           errors.push(`Failed to remove ${orphan}: ${(err as Error).message}`);
