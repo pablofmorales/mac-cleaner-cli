@@ -88,11 +88,20 @@ export function isNewer(current: string, latest: string): boolean {
   return lPatch > cPatch;
 }
 
+// Security fix (Gerard HIGH): validate version string before passing to spawnSync.
+// Prevents a compromised npm registry response from injecting arbitrary strings
+// into the npm install argument (e.g. path traversal or special chars).
+const SEMVER_RE = /^\d+\.\d+\.\d+(?:-[a-zA-Z0-9._-]+)?(?:\+[a-zA-Z0-9._-]+)?$/;
+
 /**
  * Perform a live upgrade by running npm install -g @blackasteroid/mac-cleaner-cli@<version>.
- * Returns { ok, installedVersion, error }.
+ * Returns { ok, error }.
  */
 export function runNpmUpgrade(targetVersion: string): { ok: boolean; error?: string } {
+  if (!SEMVER_RE.test(targetVersion)) {
+    return { ok: false, error: `Invalid version string from registry: "${targetVersion}"` };
+  }
+
   const result = spawnSync(
     "npm",
     ["install", "-g", `${PACKAGE_NAME}@${targetVersion}`],
