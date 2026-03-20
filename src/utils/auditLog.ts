@@ -4,11 +4,12 @@ import * as path from "path";
 import { fileURLToPath } from "url";
 import { dirname } from "path";
 
-// dist/utils/auditLog.js → dist/../package.json (one level up from dist/)
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 function getVersion(): string {
   try {
+    // dist/utils/auditLog.js → dist/ → package.json (one level up)
     const raw = fs.readFileSync(path.join(__dirname, "..", "package.json"), "utf8");
     return (JSON.parse(raw) as { version: string }).version;
   } catch {
