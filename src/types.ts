@@ -6,6 +6,8 @@ export interface CleanOptions {
   noSudo?: boolean;
   /** Non-interactive mode (CI-safe) — same as --no-sudo */
   yes?: boolean;
+  /** Overwrite files with zeros before deletion (macOS only, files only) */
+  secureDelete?: boolean;
 }
 
 export interface CleanResult {

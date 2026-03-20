@@ -1,11 +1,13 @@
 import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
+import { spawnSync } from "child_process";
 import chalk from "chalk";
 import ora from "ora";
 import { CleanOptions, CleanResult } from "../types.js";
 import { duBytes, formatBytes } from "../utils/du.js";
 import { renderSummaryTable, verboseLine } from "../utils/format.js";
+import { writeAuditLog } from "../utils/auditLog.js";
 
 const home = os.homedir();
 
@@ -78,6 +80,20 @@ export async function clean(options: CleanOptions): Promise<CleanResult> {
   for (const { browser, path: p } of allCandidates) {
     const size = duBytes(p);
     try {
+      // #41: Secure delete — overwrite file with zeros before removal (macOS, files only)
+      if (options.secureDelete && process.platform === "darwin") {
+        let stat: fs.Stats | null = null;
+        try { stat = fs.statSync(p); } catch { /* ignore */ }
+        if (stat?.isFile()) {
+          if (options.verbose && !options.json) {
+            console.log(chalk.gray(`    [secure-delete] overwriting ${p}`));
+          }
+          // Security fix (Gerard HIGH): overwrite full file size using Node.js Buffer
+          if (stat && stat.size > 0) {
+            try { fs.writeFileSync(p, Buffer.alloc(stat.size)); } catch { /* best-effort */ }
+          }
+        }
+      }
       fs.rmSync(p, { recursive: true, force: true });
       cleanedPaths.push(p);
       freed += size;
@@ -100,6 +116,15 @@ export async function clean(options: CleanOptions): Promise<CleanResult> {
       console.warn(chalk.yellow(`  ⚠ ${e}`));
     }
   }
+
+  // #44: Audit log
+  writeAuditLog({
+    command: "clean browser",
+    options: { dryRun: options.dryRun, json: options.json, verbose: options.verbose, secureDelete: options.secureDelete },
+    paths_deleted: cleanedPaths,
+    bytes_freed: freed,
+    errors,
+  });
 
   return { ok: true, paths: cleanedPaths, freed, errors };
 }

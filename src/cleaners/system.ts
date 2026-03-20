@@ -10,6 +10,7 @@ import { renderSummaryTable, SummaryRow, verboseLine } from "../utils/format.js"
 import { isPrivilegedPath } from "../utils/privilegedPaths.js";
 import { promptSudoPassword, sudoRmRf, verifySudoPassword } from "../utils/sudo.js";
 import { isSafeToDelete } from "../utils/safeDelete.js";
+import { writeAuditLog } from "../utils/auditLog.js";
 
 function getSubdirectories(dirPath: string): string[] {
   if (!fs.existsSync(dirPath)) return [];
@@ -29,7 +30,21 @@ function getSubdirectories(dirPath: string): string[] {
   }
 }
 
-function removePathSafe(targetPath: string, errors: string[], allowedBase: string): number {
+function secureOverwriteFile(filePath: string): void {
+  try {
+    // Security fix (Gerard HIGH): overwrite the FULL file size, not just 1KB.
+    // Using fs.writeFileSync with a zero-filled Buffer — more idiomatic in Node.js
+    // and doesn't depend on `dd` being available.
+    const stat = fs.statSync(filePath);
+    if (stat.isFile() && stat.size > 0) {
+      fs.writeFileSync(filePath, Buffer.alloc(stat.size));
+    }
+  } catch {
+    // best-effort — continue with deletion even if overwrite fails
+  }
+}
+
+function removePathSafe(targetPath: string, errors: string[], allowedBase: string, options?: CleanOptions): number {
   // Security (#43): check that resolved path doesn't escape the allowed base via symlinks
   if (!isSafeToDelete(targetPath, allowedBase)) {
     errors.push(`Skipped (symlink escape detected): ${targetPath}`);
@@ -37,6 +52,17 @@ function removePathSafe(targetPath: string, errors: string[], allowedBase: strin
   }
   const size = duBytes(targetPath);
   try {
+    // #41: Secure delete — overwrite file with zeros before removal (macOS, files only)
+    if (options?.secureDelete && process.platform === "darwin") {
+      let stat: fs.Stats | null = null;
+      try { stat = fs.statSync(targetPath); } catch { /* ignore */ }
+      if (stat?.isFile()) {
+        if (options.verbose && !options.json) {
+          console.log(chalk.gray(`    [secure-delete] overwriting ${targetPath}`));
+        }
+        secureOverwriteFile(targetPath);
+      }
+    }
     fs.rmSync(targetPath, { recursive: true, force: true });
     return size;
   } catch (err) {
@@ -122,12 +148,21 @@ export async function clean(options: CleanOptions): Promise<CleanResult> {
   // ── Normal paths ─────────────────────────────────────────────────────────
   if (spinner) spinner.text = "Cleaning system caches...";
 
+  let permissionSkipped = 0;
+
   for (const p of normalPaths) {
-    const size = removePathSafe(p, errors, os.homedir());
+    const prevErrorCount = errors.length;
+    const size = removePathSafe(p, errors, os.homedir(), options);
     if (size > 0 || !fs.existsSync(p)) {
       if (options.verbose && !options.json) verboseLine("system", p, size, false);
       cleanedPaths.push(p);
       freed += size;
+    } else if (errors.length > prevErrorCount) {
+      // Check if the new error is a permission error
+      const newErr = errors[errors.length - 1];
+      if (newErr && (newErr.includes("EPERM") || newErr.includes("EACCES") || newErr.includes("permission denied"))) {
+        permissionSkipped++;
+      }
     }
   }
 
@@ -177,6 +212,12 @@ export async function clean(options: CleanOptions): Promise<CleanResult> {
 
   if (spinner) spinner.succeed(chalk.green("System cleaned"));
 
+  // #25: Warn when paths were skipped due to permissions (not in json mode, not in sudo mode)
+  const noSudoMode = options.noSudo || options.yes || !process.stdin.isTTY;
+  if (permissionSkipped > 0 && !options.json && noSudoMode) {
+    console.warn(chalk.yellow(`  ⚠ ${permissionSkipped} path(s) skipped — require elevated permissions. Run with sudo or without --no-sudo to clean them.`));
+  }
+
   if (!options.json && !suppressTable) {
     const rows: SummaryRow[] = [
       { module: "User caches", paths: cleanedPaths.filter((p) => !isPrivilegedPath(p)).length, freed: freed - privilegedFreed, status: "freed", warnings: errors.filter((e) => !e.includes("sudo")).length },
@@ -199,5 +240,16 @@ export async function clean(options: CleanOptions): Promise<CleanResult> {
     }
   }
 
-  return { ok: true, paths: cleanedPaths, freed, errors, privilegedSkipped };
+  const result: CleanResult = { ok: true, paths: cleanedPaths, freed, errors, privilegedSkipped };
+
+  // #44: Audit log
+  writeAuditLog({
+    command: "clean system",
+    options: { dryRun: options.dryRun, json: options.json, verbose: options.verbose, noSudo: options.noSudo, secureDelete: options.secureDelete },
+    paths_deleted: cleanedPaths,
+    bytes_freed: freed,
+    errors,
+  });
+
+  return result;
 }
