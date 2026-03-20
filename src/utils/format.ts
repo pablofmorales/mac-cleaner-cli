@@ -31,6 +31,7 @@ export function renderSummaryTable(rows: SummaryRow[], dryRun = false): void {
   console.log(header);
   console.log(chalk.gray(divider));
 
+
   let totalPaths = 0;
   let totalFreed = 0;
 
@@ -69,8 +70,9 @@ export function renderSummaryTable(rows: SummaryRow[], dryRun = false): void {
   console.log();
 
   if (!dryRun) {
-    console.log(chalk.gray("Run with --verbose to see details of each path."));
+    console.log(chalk.gray("  Run with --verbose to see details of each path."));
   }
+  console.log();
 }
 
 function statusStr(icon: string, width: number): string {

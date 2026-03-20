@@ -1,6 +1,6 @@
 import { spawnSync } from "child_process";
 import chalk from "chalk";
-import ora from "ora";
+import { createSpinner } from "../utils/spinner.js";
 import { CleanOptions, CleanResult } from "../types.js";
 import { renderSummaryTable } from "../utils/format.js";
 import { writeAuditLog } from "../utils/auditLog.js";
@@ -11,7 +11,7 @@ import { writeAuditLog } from "../utils/auditLog.js";
  * Does NOT delete anything — freed is always 0.
  */
 export async function clean(options: CleanOptions): Promise<CleanResult> {
-  const spinner = options.json ? null : ora("Scanning keychain...").start();
+  const spinner = options.json ? null : createSpinner("Scanning keychain...").start();
   const errors: string[] = [];
 
   let genericPasswordCount = 0;

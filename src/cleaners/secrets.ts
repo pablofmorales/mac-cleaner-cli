@@ -2,7 +2,7 @@ import * as fs from "fs";
 import * as os from "os";
 import * as path from "path";
 import chalk from "chalk";
-import ora from "ora";
+import { createSpinner } from "../utils/spinner.js";
 import { CleanOptions } from "../types.js";
 
 export interface SecretFinding {
@@ -94,7 +94,7 @@ function scanFile(filePath: string, label: string, findings: SecretFinding[], er
 }
 
 export async function scan(options: Pick<CleanOptions, "json" | "verbose">): Promise<ScanResult> {
-  const spinner = options.json ? null : ora("Scanning for exposed secrets...").start();
+  const spinner = options.json ? null : createSpinner("Scanning for exposed secrets...").start();
   const findings: SecretFinding[] = [];
   const errors: string[] = [];
   let scannedFiles = 0;

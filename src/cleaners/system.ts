@@ -3,7 +3,7 @@ import * as os from "os";
 import * as path from "path";
 import { spawnSync } from "child_process";
 import chalk from "chalk";
-import ora from "ora";
+import { createSpinner } from "../utils/spinner.js";
 import { CleanOptions, CleanResult } from "../types.js";
 import { duBytes, formatBytes } from "../utils/du.js";
 import { renderSummaryTable, SummaryRow, verboseLine } from "../utils/format.js";
@@ -73,7 +73,7 @@ function removePathSafe(targetPath: string, errors: string[], allowedBase: strin
 
 export async function clean(options: CleanOptions): Promise<CleanResult> {
   const suppressTable = (options as any)._suppressTable === true;
-  const spinner = options.json ? null : ora("Scanning system caches...").start();
+  const spinner = options.json ? null : createSpinner("Scanning system caches...").start();
   const errors: string[] = [];
   const cleanedPaths: string[] = [];
   let freed = 0;

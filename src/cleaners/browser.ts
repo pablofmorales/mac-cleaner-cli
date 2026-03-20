@@ -3,7 +3,7 @@ import * as os from "os";
 import * as path from "path";
 import { spawnSync } from "child_process";
 import chalk from "chalk";
-import ora from "ora";
+import { createSpinner } from "../utils/spinner.js";
 import { CleanOptions, CleanResult } from "../types.js";
 import { duBytes, formatBytes } from "../utils/du.js";
 import { renderSummaryTable, verboseLine } from "../utils/format.js";
@@ -39,7 +39,7 @@ const BROWSER_CACHE_PATHS: Record<string, string[]> = {
 };
 
 export async function clean(options: CleanOptions): Promise<CleanResult> {
-  const spinner = options.json ? null : ora("Scanning browser caches...").start();
+  const spinner = options.json ? null : createSpinner("Scanning browser caches...").start();
   const errors: string[] = [];
   const cleanedPaths: string[] = [];
   let freed = 0;

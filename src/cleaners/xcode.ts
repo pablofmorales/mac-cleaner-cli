@@ -3,7 +3,7 @@ import * as os from "os";
 import * as path from "path";
 import { spawnSync } from "child_process";
 import chalk from "chalk";
-import ora from "ora";
+import { createSpinner } from "../utils/spinner.js";
 import { CleanOptions, CleanResult } from "../types.js";
 import { duBytes, formatBytes } from "../utils/du.js";
 import { renderSummaryTable, verboseLine } from "../utils/format.js";
@@ -52,7 +52,7 @@ function cleanSimulators(errors: string[], dryRun: boolean): number {
 }
 
 export async function clean(options: CleanOptions): Promise<CleanResult> {
-  const spinner = options.json ? null : ora("Looking for Xcode...").start();
+  const spinner = options.json ? null : createSpinner("Looking for Xcode...").start();
   const errors: string[] = [];
   const cleanedPaths: string[] = [];
   let freed = 0;

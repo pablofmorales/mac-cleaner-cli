@@ -1,6 +1,6 @@
 import { spawnSync } from "child_process";
 import chalk from "chalk";
-import ora from "ora";
+import { createSpinner } from "../utils/spinner.js";
 import { CleanOptions, CleanResult } from "../types.js";
 import { formatBytes } from "../utils/du.js";
 import { renderSummaryTable } from "../utils/format.js";
@@ -38,7 +38,7 @@ function dockerDiskUsage(dockerPath: string): number {
 }
 
 export async function clean(options: CleanOptions): Promise<CleanResult> {
-  const spinner = options.json ? null : ora("Looking for Docker...").start();
+  const spinner = options.json ? null : createSpinner("Looking for Docker...").start();
   const errors: string[] = [];
   const cleanedPaths: string[] = [];
   let freed = 0;

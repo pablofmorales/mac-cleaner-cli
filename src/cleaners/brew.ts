@@ -1,6 +1,6 @@
 import { spawnSync } from "child_process";
 import chalk from "chalk";
-import ora from "ora";
+import { createSpinner } from "../utils/spinner.js";
 import { CleanOptions, CleanResult } from "../types.js";
 import { formatBytes } from "../utils/du.js";
 import { renderSummaryTable } from "../utils/format.js";
@@ -18,7 +18,7 @@ function findBrewPath(): string | null {
 }
 
 export async function clean(options: CleanOptions): Promise<CleanResult> {
-  const spinner = options.json ? null : ora("Looking for Homebrew...").start();
+  const spinner = options.json ? null : createSpinner("Looking for Homebrew...").start();
   const errors: string[] = [];
   const cleanedPaths: string[] = [];
   let freed = 0;
