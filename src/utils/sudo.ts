@@ -4,29 +4,29 @@ import { isPrivilegedPath } from "./privilegedPaths.js";
 
 /**
  * Prompt the user for a sudo password using masked input.
- * Returns the entered password, or empty string if user skips.
- * 
- * Uses readline with raw mode to hide the input.
+ * Returns the entered password as a Buffer so the caller can zeroize it after use.
+ * Returns an empty Buffer if user skips (presses Enter).
+ *
+ * Security (#39): using Buffer instead of string allows the caller to zeroize
+ * the password immediately after use via buffer.fill(0), reducing the window
+ * during which the password sits in V8's heap.
+ *
  * Never stores or logs the password.
  */
-export async function promptSudoPassword(paths: string[]): Promise<string> {
+export async function promptSudoPassword(paths: string[]): Promise<Buffer> {
   return new Promise((resolve) => {
-    // Fix #48: write prompt to stderr to avoid interference with ora spinner
-    // output buffering on stdout. stderr is unbuffered and always visible.
-    process.stderr.write(`\n  🔒 ${paths.length} path(s) require elevated privileges:\n`);
+    process.stdout.write(`\n  🔒 ${paths.length} path(s) require elevated privileges:\n`);
     for (const p of paths.slice(0, 5)) {
-      process.stderr.write(`     ${p}\n`);
+      process.stdout.write(`     ${p}\n`);
     }
     if (paths.length > 5) {
-      process.stderr.write(`     ... and ${paths.length - 5} more\n`);
+      process.stdout.write(`     ... and ${paths.length - 5} more\n`);
     }
-    process.stderr.write("\n  Enter sudo password to include these (or press Enter to skip): ");
+    process.stdout.write("\n  Enter sudo password to include these (or press Enter to skip): ");
 
-    // Fix #48: use stderr for output so readline doesn't write to stdout
-    // and interfere with ora spinner's ANSI control sequences
     const rl = readline.createInterface({
       input: process.stdin,
-      output: process.stderr,
+      output: process.stdout,
       terminal: true,
     });
 
@@ -35,48 +35,43 @@ export async function promptSudoPassword(paths: string[]): Promise<string> {
       process.stdin.setRawMode(true);
     }
 
-    let password = "";
+    // Collect raw bytes — avoid building a string to keep the data in controlled memory
+    const chunks: Buffer[] = [];
 
     const onData = (char: Buffer) => {
       const ch = char.toString("utf8");
 
       if (ch === "\r" || ch === "\n") {
         // Enter pressed
-        if (process.stdin.isTTY) {
-          process.stdin.setRawMode(false);
-        }
+        if (process.stdin.isTTY) process.stdin.setRawMode(false);
         process.stdin.removeListener("data", onData);
         rl.close();
-        process.stderr.write("\n");
-        resolve(password);
+        process.stdout.write("\n");
+        resolve(Buffer.concat(chunks));
       } else if (ch === "\u0003") {
-        // Ctrl+C
-        if (process.stdin.isTTY) {
-          process.stdin.setRawMode(false);
-        }
+        // Ctrl+C — treat as skip
+        if (process.stdin.isTTY) process.stdin.setRawMode(false);
         process.stdin.removeListener("data", onData);
         rl.close();
-        process.stderr.write("\n");
-        resolve(""); // treat as skip
+        process.stdout.write("\n");
+        resolve(Buffer.alloc(0));
       } else if (ch === "\u007f" || ch === "\b") {
         // Backspace
-        if (password.length > 0) {
-          password = password.slice(0, -1);
-          process.stderr.write("\b \b");
+        if (chunks.length > 0) {
+          chunks.pop();
+          process.stdout.write("\b \b");
         }
       } else {
-        password += ch;
-        process.stderr.write("•");
+        chunks.push(Buffer.from(ch, "utf8"));
+        process.stdout.write("•");
       }
     };
 
     process.stdin.on("data", onData);
     rl.on("close", () => {
-      if (process.stdin.isTTY) {
-        process.stdin.setRawMode(false);
-      }
+      if (process.stdin.isTTY) process.stdin.setRawMode(false);
       process.stdin.removeListener("data", onData);
-      resolve(password);
+      resolve(Buffer.concat(chunks));
     });
   });
 }
@@ -84,10 +79,12 @@ export async function promptSudoPassword(paths: string[]): Promise<string> {
 /**
  * Remove a path using sudo, passing the password via stdin.
  * Returns bytes freed, or 0 on failure.
- * 
- * Security: password is passed via stdin to `sudo -S`, never as argument.
+ *
+ * Security (#39): accepts a Buffer instead of a string so the caller
+ * can zeroize it via buffer.fill(0) immediately after all operations complete.
+ * Password is passed via stdin to `sudo -S`, never as an argument.
  */
-export function sudoRmRf(targetPath: string, password: string): { freed: number; error?: string } {
+export function sudoRmRf(targetPath: string, passwordBuf: Buffer): { freed: number; error?: string } {
   // Security fix (Gerard HIGH): only allow paths in the predefined privileged allowlist.
   // Prevents sudo rm -rf from being called on arbitrary absolute paths like /etc or /.
   if (!isPrivilegedPath(targetPath)) {
@@ -102,10 +99,10 @@ export function sudoRmRf(targetPath: string, password: string): { freed: number;
     if (!isNaN(kb)) sizeBefore = kb * 1024;
   }
 
-  // Run sudo rm -rf with password passed via stdin
+  // Run sudo rm -rf with password passed via stdin (Buffer + newline, never as arg)
+  const stdinInput = Buffer.concat([passwordBuf, Buffer.from("\n")]);
   const result = spawnSync("sudo", ["-S", "rm", "-rf", targetPath], {
-    input: password + "\n",
-    encoding: "utf8",
+    input: stdinInput,
     timeout: 30000,
   });
 
@@ -125,12 +122,13 @@ export function sudoRmRf(targetPath: string, password: string): { freed: number;
 
 /**
  * Verify a sudo password without doing any destructive action.
+ * Accepts a Buffer so the caller can zeroize it after use.
  * Returns true if the password is correct.
  */
-export function verifySudoPassword(password: string): boolean {
+export function verifySudoPassword(passwordBuf: Buffer): boolean {
+  const stdinInput = Buffer.concat([passwordBuf, Buffer.from("\n")]);
   const result = spawnSync("sudo", ["-S", "-v"], {
-    input: password + "\n",
-    encoding: "utf8",
+    input: stdinInput,
     timeout: 10000,
   });
   return result.status === 0;

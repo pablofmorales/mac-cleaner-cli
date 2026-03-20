@@ -211,6 +211,22 @@ addCleanOptions(
   process.exit(result.ok ? 0 : 1);
 });
 
+// ─── scan ──────────────────────────────────────────────────────────────────
+
+program
+  .command("scan")
+  .description("Scan caches and config files for accidentally exposed secrets (does not delete)")
+  .option("--json", "Output results as JSON", false)
+  .option("-v, --verbose", "Show redacted previews of each finding", false)
+  .action(async (opts: { json: boolean; verbose: boolean }) => {
+    const { scan } = await import("./cleaners/secrets.js");
+    const result = await scan(opts);
+    if (opts.json) {
+      console.log(JSON.stringify({ ok: result.ok, data: { findings: result.findings, scannedFiles: result.scannedFiles }, error: result.errors.length ? result.errors : null }));
+    }
+    process.exit(result.findings.length > 0 ? 1 : 0); // non-zero exit when secrets found (CI-friendly)
+  });
+
 // ─── upgrade ───────────────────────────────────────────────────────────────
 
 program

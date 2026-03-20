@@ -9,6 +9,7 @@ import { duBytes, formatBytes } from "../utils/du.js";
 import { renderSummaryTable, SummaryRow, verboseLine } from "../utils/format.js";
 import { isPrivilegedPath } from "../utils/privilegedPaths.js";
 import { promptSudoPassword, sudoRmRf, verifySudoPassword } from "../utils/sudo.js";
+import { isSafeToDelete } from "../utils/safeDelete.js";
 
 function getSubdirectories(dirPath: string): string[] {
   if (!fs.existsSync(dirPath)) return [];
@@ -28,7 +29,12 @@ function getSubdirectories(dirPath: string): string[] {
   }
 }
 
-function removePathSafe(targetPath: string, errors: string[]): number {
+function removePathSafe(targetPath: string, errors: string[], allowedBase: string): number {
+  // Security (#43): check that resolved path doesn't escape the allowed base via symlinks
+  if (!isSafeToDelete(targetPath, allowedBase)) {
+    errors.push(`Skipped (symlink escape detected): ${targetPath}`);
+    return 0;
+  }
   const size = duBytes(targetPath);
   try {
     fs.rmSync(targetPath, { recursive: true, force: true });
@@ -117,7 +123,7 @@ export async function clean(options: CleanOptions): Promise<CleanResult> {
   if (spinner) spinner.text = "Cleaning system caches...";
 
   for (const p of normalPaths) {
-    const size = removePathSafe(p, errors);
+    const size = removePathSafe(p, errors, os.homedir());
     if (size > 0 || !fs.existsSync(p)) {
       if (options.verbose && !options.json) verboseLine("system", p, size, false);
       cleanedPaths.push(p);
@@ -132,33 +138,32 @@ export async function clean(options: CleanOptions): Promise<CleanResult> {
   const skipSudo = options.noSudo || options.yes || !process.stdin.isTTY;
 
   if (privilegedPaths.length > 0 && !skipSudo && !options.json) {
-    // Fix #48: stop the spinner BEFORE showing the sudo prompt.
-    // ora writes ANSI escape sequences to stdout that overwrite the current line,
-    // making any subsequent prompt text invisible. Stopping it first clears
-    // the spinner line and lets the prompt render correctly.
-    if (spinner) spinner.stop();
+    // Prompt once for sudo password — returns Buffer for zeroization
+    const passwordBuf = await promptSudoPassword(privilegedPaths);
 
-    // Prompt once for sudo password
-    const password = await promptSudoPassword(privilegedPaths);
-
-    if (password) {
-      // Verify the password first
-      const valid = verifySudoPassword(password);
-      if (!valid) {
-        errors.push("Sudo password incorrect — privileged paths skipped");
-        privilegedSkipped = privilegedPaths.length;
-      } else {
-        for (const p of privilegedPaths) {
-          const { freed: f, error } = sudoRmRf(p, password);
-          if (error) {
-            errors.push(error);
-            privilegedSkipped++;
-          } else {
-            cleanedPaths.push(p);
-            privilegedFreed += f;
-            if (options.verbose) verboseLine("sudo", p, f, false);
+    if (passwordBuf.length > 0) {
+      try {
+        // Verify the password first (non-destructive sudo -v)
+        const valid = verifySudoPassword(passwordBuf);
+        if (!valid) {
+          errors.push("Sudo password incorrect — privileged paths skipped");
+          privilegedSkipped = privilegedPaths.length;
+        } else {
+          for (const p of privilegedPaths) {
+            const { freed: f, error } = sudoRmRf(p, passwordBuf);
+            if (error) {
+              errors.push(error);
+              privilegedSkipped++;
+            } else {
+              cleanedPaths.push(p);
+              privilegedFreed += f;
+              if (options.verbose) verboseLine("sudo", p, f, false);
+            }
           }
         }
+      } finally {
+        // Security (#39): zeroize password Buffer immediately after use
+        passwordBuf.fill(0);
       }
     } else {
       // User pressed Enter to skip
