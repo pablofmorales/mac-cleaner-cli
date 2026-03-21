@@ -5,8 +5,7 @@ A fast, safe CLI for cleaning macOS development caches. Reclaim gigabytes of dis
 ![mac-cleaner hero](.github/assets/hero.png)
 
 
-
-<video src="https://github.com/user/repo/assets/12345/video-id.mp4](https://github.com/BlackAsteroid/mac-cleaner-cli/releases/download/v1.5.5/demo.mp4)" controls width="600"></video>
+[![Demo — click to watch full video](.github/assets/demo.gif)](https://github.com/BlackAsteroid/mac-cleaner-cli/releases/download/v1.5.5/demo.mp4)
 
 
 
