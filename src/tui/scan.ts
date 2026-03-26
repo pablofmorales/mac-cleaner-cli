@@ -1,4 +1,6 @@
 import { Worker } from "worker_threads";
+import { existsSync } from "fs";
+import { fileURLToPath } from "url";
 import type { CleanOptions, CleanResult } from "../types.js";
 
 const workerScript = `
@@ -18,13 +20,32 @@ run();
 `;
 
 /**
+ * Resolve a relative import path (e.g. "../cleaners/system.js") to an
+ * absolute file:// URL that works in both dev (tsx, .ts files) and
+ * production (tsup-bundled, .js files).
+ */
+function resolveCleanerUrl(relativeImport: string): string {
+  // First try: resolve as-is (.js) relative to this file
+  const jsUrl = new URL(relativeImport, import.meta.url);
+  const jsPath = fileURLToPath(jsUrl);
+  if (existsSync(jsPath)) return jsUrl.href;
+
+  // Second try: swap .js -> .ts for dev mode (tsx)
+  const tsUrl = new URL(relativeImport.replace(/\.js$/, ".ts"), import.meta.url);
+  const tsPath = fileURLToPath(tsUrl);
+  if (existsSync(tsPath)) return tsUrl.href;
+
+  // Fallback: return the .js URL and let the worker report the error
+  return jsUrl.href;
+}
+
+/**
  * Runs a cleaner in a Worker thread so the main event loop stays free
  * for UI updates (spinner animation, screen redraws).
  */
 function runInWorker(importPath: string, options: Record<string, unknown>): Promise<CleanResult> {
   return new Promise((resolve) => {
-    // Use an absolute file:// URL so the worker can resolve the import
-    const absPath = new URL(importPath, import.meta.url).href;
+    const absPath = resolveCleanerUrl(importPath);
 
     const worker = new Worker(workerScript, {
       eval: true,
