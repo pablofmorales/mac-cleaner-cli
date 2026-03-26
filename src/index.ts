@@ -180,6 +180,10 @@ addCleanOptions(
 ).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean; minSize: string; olderThan: string }) => {
   const { clean } = await import("./cleaners/largefiles.js");
   const result = await clean({ ...opts, minSize: opts.minSize, olderThan: opts.olderThan } as any);
+  outputResult(result, opts.json);
+  process.exit(result.ok ? 0 : 1);
+});
+
 // clean startup
 addCleanOptions(
   cleanCmd
@@ -187,6 +191,11 @@ addCleanOptions(
     .description("List and inspect Launch Agents and startup items (read-only audit)")
 ).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
   const { clean } = await import("./cleaners/startup.js");
+  const result = await clean(opts as CleanOptions);
+  outputResult(result, opts.json);
+  process.exit(result.ok ? 0 : 1);
+});
+
 // clean cloud
 addCleanOptions(
   cleanCmd
@@ -195,6 +204,10 @@ addCleanOptions(
 ).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
   const { clean } = await import("./cleaners/cloud.js");
   const result = await clean(opts as CleanOptions);
+  outputResult(result, opts.json);
+  process.exit(result.ok ? 0 : 1);
+});
+
 // clean duplicates
 addCleanOptions(
   cleanCmd
@@ -204,6 +217,10 @@ addCleanOptions(
 ).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; minSize: string }) => {
   const { clean } = await import("./cleaners/duplicates.js");
   const result = await clean(opts as any);
+  outputResult(result, opts.json);
+  process.exit(result.ok ? 0 : 1);
+});
+
 // clean mail
 addCleanOptions(
   cleanCmd
@@ -211,6 +228,11 @@ addCleanOptions(
     .description("Clean cached mail attachments and downloads from Apple Mail")
 ).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
   const { clean } = await import("./cleaners/mail.js");
+  const result = await clean(opts as CleanOptions);
+  outputResult(result, opts.json);
+  process.exit(result.ok ? 0 : 1);
+});
+
 // clean apps
 addCleanOptions(
   cleanCmd
@@ -358,25 +380,57 @@ addCleanOptions(
 ).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean; minSize: string; olderThan: string }) => {
   const { clean } = await import("./cleaners/largefiles.js");
   const result = await clean({ ...opts, minSize: opts.minSize, olderThan: opts.olderThan } as any);
+  outputResult(result, opts.json);
+  process.exit(result.ok ? 0 : 1);
+});
+
+addCleanOptions(
+  program
     .command("startup")
     .description("List and inspect Launch Agents and startup items")
 ).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
   const { clean } = await import("./cleaners/startup.js");
+  const result = await clean(opts as CleanOptions);
+  outputResult(result, opts.json);
+  process.exit(result.ok ? 0 : 1);
+});
+
+addCleanOptions(
+  program
     .command("cloud")
     .description("Clean cloud storage caches (iCloud, Dropbox, Google Drive, OneDrive)")
 ).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
   const { clean } = await import("./cleaners/cloud.js");
   const result = await clean(opts as CleanOptions);
+  outputResult(result, opts.json);
+  process.exit(result.ok ? 0 : 1);
+});
+
+addCleanOptions(
+  program
     .command("duplicates")
     .description("Find and remove duplicate files")
     .option("--min-size <size>", "Minimum file size to consider (e.g. 1M, 500K)", "1M")
 ).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; minSize: string }) => {
   const { clean } = await import("./cleaners/duplicates.js");
   const result = await clean(opts as any);
+  outputResult(result, opts.json);
+  process.exit(result.ok ? 0 : 1);
+});
+
+addCleanOptions(
+  program
     .command("mail")
     .description("Clean cached mail attachments & downloads")
 ).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
   const { clean } = await import("./cleaners/mail.js");
+  const result = await clean(opts as CleanOptions);
+  outputResult(result, opts.json);
+  process.exit(result.ok ? 0 : 1);
+});
+
+addCleanOptions(
+  program
     .command("apps")
     .description("Find & remove leftover files from uninstalled apps")
 ).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
@@ -435,6 +489,8 @@ program
   .action(async (pathArg: string | undefined, opts: { json: boolean }) => {
     const { runDiskUsage } = await import("./commands/diskusage.js");
     await runDiskUsage({ json: opts.json, path: pathArg });
+  });
+
 // ─── status ─────────────────────────────────────────────────────────────────
 
 program
