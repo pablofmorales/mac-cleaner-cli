@@ -56,6 +56,14 @@ const FDA_REQUIRED_PATTERNS = [
   "com.apple.Messages",
   "CloudDocuments",
   "com.apple.iCloud",
+  // Paths that macOS TCC blocks even with sudo
+  "com.apple.ap.adprivacyd",
+  "com.apple.homed",
+  "CloudKit",
+  "com.apple.iCloudHelper",
+  "com.apple.HomeKit",
+  "FamilyCircle",
+  "com.apple.security.KCDatabase",
 ];
 
 function requiresFullDiskAccess(targetPath: string): boolean {

@@ -1,7 +1,4 @@
-import * as os from "os";
 import * as path from "path";
-
-const home = os.homedir();
 
 /**
  * Paths that require elevated privileges (sudo) to clean on macOS.
@@ -9,21 +6,12 @@ const home = os.homedir();
  * when accessed by a regular user.
  */
 export const PRIVILEGED_CACHE_PATHS: string[] = [
-  // CloudKit and iCloud system caches
-  path.join(home, "Library", "Caches", "CloudKit"),
-  path.join(home, "Library", "Caches", "com.apple.iCloudHelper"),
-  // HomeKit
-  path.join(home, "Library", "Caches", "com.apple.HomeKit"),
-  // Family sharing
-  path.join(home, "Library", "Caches", "FamilyCircle"),
-  // System log paths
+  // System log paths (sudo actually works for these)
   "/var/log",
   "/private/var/log",
   // Power log (requires root)
   "/tmp/powerlog",
   "/private/tmp/powerlog",
-  // System diagnostic caches
-  path.join(home, "Library", "Caches", "com.apple.security.KCDatabase"),
 ];
 
 /**

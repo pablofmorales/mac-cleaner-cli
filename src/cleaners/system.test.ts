@@ -87,4 +87,16 @@ describe("system cleaner", () => {
     );
     expect(falseSymlinkErrors).toEqual([]);
   }, 30000);
+
+  it("TCC-protected paths are classified as FDA, not attempted via sudo", async () => {
+    const result = await clean({ dryRun: true, json: true });
+
+    // None of these TCC-protected paths should appear in errors with "sudo rm failed"
+    const sudoErrors = result.errors.filter((e) => e.includes("sudo rm failed"));
+    for (const e of sudoErrors) {
+      expect(e).not.toContain("CloudKit");
+      expect(e).not.toContain("FamilyCircle");
+      expect(e).not.toContain("HomeKit");
+    }
+  });
 });
