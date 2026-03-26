@@ -9,6 +9,7 @@ import * as docker from "./docker.js";
 import * as xcode from "./xcode.js";
 import * as keychain from "./keychain.js";
 import * as privacy from "./privacy.js";
+import * as apps from "./apps.js";
 
 interface ModuleResult {
   name: string;
@@ -31,6 +32,7 @@ export async function clean(options: CleanOptions): Promise<CleanResult> {
     { label: "xcode",    cleaner: xcode },
     { label: "keychain", cleaner: keychain as unknown as typeof system },
     { label: "privacy",  cleaner: privacy as unknown as typeof system },
+    { label: "apps",     cleaner: apps },
   ];
 
   const results: ModuleResult[] = [];

@@ -146,6 +146,18 @@ addCleanOptions(
   process.exit(result.ok ? 0 : 1);
 });
 
+// clean apps
+addCleanOptions(
+  cleanCmd
+    .command("apps")
+    .description("Find and remove leftover files from uninstalled applications")
+).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
+  const { clean } = await import("./cleaners/apps.js");
+  const result = await clean(opts as CleanOptions);
+  outputResult(result, opts.json);
+  process.exit(result.ok ? 0 : 1);
+});
+
 // clean all
 addCleanOptions(
   cleanCmd
@@ -245,6 +257,17 @@ addCleanOptions(
     .description("Clear app usage history & recent files")
 ).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
   const { clean } = await import("./cleaners/privacy.js");
+  const result = await clean(opts as CleanOptions);
+  outputResult(result, opts.json);
+  process.exit(result.ok ? 0 : 1);
+});
+
+addCleanOptions(
+  program
+    .command("apps")
+    .description("Find & remove leftover files from uninstalled apps")
+).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
+  const { clean } = await import("./cleaners/apps.js");
   const result = await clean(opts as CleanOptions);
   outputResult(result, opts.json);
   process.exit(result.ok ? 0 : 1);
