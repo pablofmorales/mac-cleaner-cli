@@ -11,6 +11,7 @@ import * as keychain from "./keychain.js";
 import * as privacy from "./privacy.js";
 import * as mobile from "./mobile.js";
 import * as startup from "./startup.js";
+import * as cloud from "./cloud.js";
 
 interface ModuleResult {
   name: string;
@@ -35,6 +36,7 @@ export async function clean(options: CleanOptions): Promise<CleanResult> {
     { label: "privacy",  cleaner: privacy as unknown as typeof system },
     { label: "mobile",   cleaner: mobile },
     { label: "startup",  cleaner: startup as unknown as typeof system },
+    { label: "cloud",    cleaner: cloud },
   ];
 
   const results: ModuleResult[] = [];

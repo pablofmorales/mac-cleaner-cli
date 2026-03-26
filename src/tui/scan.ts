@@ -28,6 +28,7 @@ const modules: ModuleDef[] = [
   { name: "Maintain", key: "maintain", importPath: "../cleaners/maintain.js" },
   { name: "Large Files", key: "largefiles", importPath: "../cleaners/largefiles.js" },
   { name: "Startup",  key: "startup",  importPath: "../cleaners/startup.js" },
+  { name: "Cloud",    key: "cloud",    importPath: "../cleaners/cloud.js" },
 ];
 
 export function getModuleList(): ModuleDef[] {
