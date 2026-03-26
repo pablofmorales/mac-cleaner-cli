@@ -289,6 +289,17 @@ program
     await runUpgrade(opts);
   });
 
+// ─── status ─────────────────────────────────────────────────────────────────
+
+program
+  .command("status")
+  .description("Show system health overview — disk, memory, uptime, reclaimable space")
+  .option("--json", "Output result as JSON", false)
+  .action(async (opts: { json: boolean }) => {
+    const { runStatus } = await import("./commands/status.js");
+    await runStatus(opts);
+  });
+
 // ─── TUI mode ──────────────────────────────────────────────────────────────
 
 program
