@@ -47,9 +47,18 @@ function runInWorker(importPath: string, options: Record<string, unknown>): Prom
   return new Promise((resolve) => {
     const absPath = resolveCleanerUrl(importPath);
 
+    // Detect if we're running under tsx (dev mode) by checking process.execArgv
+    // or the resolved path ending in .ts. If so, pass tsx's loader to the worker
+    // so it can resolve .js -> .ts imports within cleaner modules.
+    const isTsxDev = absPath.endsWith(".ts") || process.execArgv.some(
+      (a) => a.includes("tsx") || a.includes("ts-node"),
+    );
+    const execArgv = isTsxDev ? ["--import", "tsx"] : [];
+
     const worker = new Worker(workerScript, {
       eval: true,
       workerData: { importPath: absPath, options },
+      execArgv,
     });
 
     let resolved = false;
