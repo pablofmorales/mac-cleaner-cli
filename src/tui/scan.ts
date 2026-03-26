@@ -26,6 +26,7 @@ const modules: ModuleDef[] = [
   { name: "Privacy",  key: "privacy",  importPath: "../cleaners/privacy.js" },
   { name: "iOS Backups", key: "mobile", importPath: "../cleaners/mobile.js" },
   { name: "Maintain", key: "maintain", importPath: "../cleaners/maintain.js" },
+  { name: "Large Files", key: "largefiles", importPath: "../cleaners/largefiles.js" },
 ];
 
 export function getModuleList(): ModuleDef[] {

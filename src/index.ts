@@ -170,6 +170,20 @@ addCleanOptions(
   process.exit(result.ok ? 0 : 1);
 });
 
+// clean large-files
+addCleanOptions(
+  cleanCmd
+    .command("large-files")
+    .description("Find and remove large files (>100MB) not accessed recently")
+    .option("--min-size <size>", "Minimum file size threshold (e.g. 100M, 1G)", "100M")
+    .option("--older-than <days>", "Only include files not accessed in this many days", "90")
+).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean; minSize: string; olderThan: string }) => {
+  const { clean } = await import("./cleaners/largefiles.js");
+  const result = await clean({ ...opts, minSize: opts.minSize, olderThan: opts.olderThan } as any);
+  outputResult(result, opts.json);
+  process.exit(result.ok ? 0 : 1);
+});
+
 // clean all
 addCleanOptions(
   cleanCmd
@@ -292,6 +306,19 @@ addCleanOptions(
 ).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
   const { clean } = await import("./cleaners/maintain.js");
   const result = await clean(opts as CleanOptions);
+  outputResult(result, opts.json);
+  process.exit(result.ok ? 0 : 1);
+});
+
+addCleanOptions(
+  program
+    .command("large-files")
+    .description("Find and remove large & old files in ~/Downloads, ~/Desktop, ~/Documents")
+    .option("--min-size <size>", "Minimum file size threshold (e.g. 100M, 1G)", "100M")
+    .option("--older-than <days>", "Only include files not accessed in this many days", "90")
+).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean; minSize: string; olderThan: string }) => {
+  const { clean } = await import("./cleaners/largefiles.js");
+  const result = await clean({ ...opts, minSize: opts.minSize, olderThan: opts.olderThan } as any);
   outputResult(result, opts.json);
   process.exit(result.ok ? 0 : 1);
 });
