@@ -60,4 +60,21 @@ describe("system cleaner", () => {
     const result = await clean({ dryRun: true, json: true });
     expect(result.ok).toBe(true);
   });
+
+  it("non-verbose mode suppresses error warnings from stdout", async () => {
+    const warns: string[] = [];
+    const origWarn = console.warn;
+    console.warn = (...args: any[]) => warns.push(args.join(" "));
+
+    try {
+      // dryRun: false so the cleaner actually attempts deletions (some will fail with
+      // permission errors, populating the errors array and exercising the output gate)
+      await clean({ dryRun: false, json: false, verbose: false, noSudo: true, _suppressTable: true } as any);
+    } finally {
+      console.warn = origWarn;
+    }
+
+    // In non-verbose mode, no warning lines should be printed
+    expect(warns.length).toBe(0);
+  }, 30000);
 });

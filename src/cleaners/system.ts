@@ -251,7 +251,7 @@ export async function clean(options: CleanOptions): Promise<CleanResult> {
 
   // #25: Warn when paths were skipped due to permissions (not in json mode, not in sudo mode)
   const noSudoMode = options.noSudo || options.yes || !process.stdin.isTTY;
-  if (permissionSkipped > 0 && !options.json && noSudoMode) {
+  if (permissionSkipped > 0 && !options.json && noSudoMode && options.verbose) {
     console.warn(chalk.yellow(`  ⚠ ${permissionSkipped} path(s) skipped — require elevated permissions. Run without --no-sudo to attempt cleanup.`));
   }
 
@@ -271,7 +271,7 @@ export async function clean(options: CleanOptions): Promise<CleanResult> {
     renderSummaryTable(rows);
   }
 
-  if (errors.length > 0 && !options.json) {
+  if (errors.length > 0 && !options.json && options.verbose) {
     for (const e of errors) {
       console.warn(chalk.yellow(`  ⚠ ${e}`));
     }
