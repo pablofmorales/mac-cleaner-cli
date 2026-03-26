@@ -7,6 +7,7 @@ A fast, safe CLI for cleaning macOS development caches. Reclaim gigabytes of dis
 
 
 [![npm version](https://img.shields.io/npm/v/@blackasteroid/mac-cleaner-cli?color=cyan&label=npm)](https://www.npmjs.com/package/@blackasteroid/mac-cleaner-cli)
+[![homebrew](https://img.shields.io/badge/homebrew-tap-orange)](https://github.com/BlackAsteroid/homebrew-tap)
 [![Build](https://github.com/BlackAsteroid/mac-cleaner-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/BlackAsteroid/mac-cleaner-cli/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
@@ -25,6 +26,16 @@ mac-cleaner all
 ---
 
 ## Install
+
+### Homebrew (recommended)
+
+```bash
+brew install BlackAsteroid/tap/mac-cleaner
+```
+
+This taps the [BlackAsteroid/tap](https://github.com/BlackAsteroid/homebrew-tap) and installs `mac-cleaner` with all dependencies managed automatically.
+
+### npm
 
 ```bash
 npm install -g @blackasteroid/mac-cleaner-cli
