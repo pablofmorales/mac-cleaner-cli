@@ -24,6 +24,7 @@ const modules: ModuleDef[] = [
   { name: "Xcode",    key: "xcode",    importPath: "../cleaners/xcode.js" },
   { name: "Keychain", key: "keychain", importPath: "../cleaners/keychain.js" },
   { name: "Privacy",  key: "privacy",  importPath: "../cleaners/privacy.js" },
+  { name: "Startup",  key: "startup",  importPath: "../cleaners/startup.js" },
 ];
 
 export function getModuleList(): ModuleDef[] {

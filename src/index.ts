@@ -146,6 +146,18 @@ addCleanOptions(
   process.exit(result.ok ? 0 : 1);
 });
 
+// clean startup
+addCleanOptions(
+  cleanCmd
+    .command("startup")
+    .description("List and inspect Launch Agents and startup items (read-only audit)")
+).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
+  const { clean } = await import("./cleaners/startup.js");
+  const result = await clean(opts as CleanOptions);
+  outputResult(result, opts.json);
+  process.exit(result.ok ? 0 : 1);
+});
+
 // clean all
 addCleanOptions(
   cleanCmd
@@ -245,6 +257,17 @@ addCleanOptions(
     .description("Clear app usage history & recent files")
 ).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
   const { clean } = await import("./cleaners/privacy.js");
+  const result = await clean(opts as CleanOptions);
+  outputResult(result, opts.json);
+  process.exit(result.ok ? 0 : 1);
+});
+
+addCleanOptions(
+  program
+    .command("startup")
+    .description("List and inspect Launch Agents and startup items")
+).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
+  const { clean } = await import("./cleaners/startup.js");
   const result = await clean(opts as CleanOptions);
   outputResult(result, opts.json);
   process.exit(result.ok ? 0 : 1);
