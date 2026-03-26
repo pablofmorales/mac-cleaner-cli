@@ -158,6 +158,18 @@ addCleanOptions(
   process.exit(result.ok ? 0 : 1);
 });
 
+// clean maintain
+addCleanOptions(
+  cleanCmd
+    .command("maintain")
+    .description("Run macOS maintenance tasks (DNS flush, Spotlight rebuild, disk permissions, etc.)")
+).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
+  const { clean } = await import("./cleaners/maintain.js");
+  const result = await clean(opts as CleanOptions);
+  outputResult(result, opts.json);
+  process.exit(result.ok ? 0 : 1);
+});
+
 // clean all
 addCleanOptions(
   cleanCmd
@@ -268,6 +280,17 @@ addCleanOptions(
     .description("Clean old iOS/iPadOS device backups")
 ).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
   const { clean } = await import("./cleaners/mobile.js");
+  const result = await clean(opts as CleanOptions);
+  outputResult(result, opts.json);
+  process.exit(result.ok ? 0 : 1);
+});
+
+addCleanOptions(
+  program
+    .command("maintain")
+    .description("Run macOS maintenance tasks (DNS, Spotlight, permissions, etc.)")
+).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
+  const { clean } = await import("./cleaners/maintain.js");
   const result = await clean(opts as CleanOptions);
   outputResult(result, opts.json);
   process.exit(result.ok ? 0 : 1);
