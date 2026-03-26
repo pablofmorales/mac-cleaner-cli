@@ -396,6 +396,15 @@ program
   .action(async (pathArg: string | undefined, opts: { json: boolean }) => {
     const { runDiskUsage } = await import("./commands/diskusage.js");
     await runDiskUsage({ json: opts.json, path: pathArg });
+// ─── status ─────────────────────────────────────────────────────────────────
+
+program
+  .command("status")
+  .description("Show system health overview — disk, memory, uptime, reclaimable space")
+  .option("--json", "Output result as JSON", false)
+  .action(async (opts: { json: boolean }) => {
+    const { runStatus } = await import("./commands/status.js");
+    await runStatus(opts);
   });
 
 // ─── TUI mode ──────────────────────────────────────────────────────────────
