@@ -3,6 +3,9 @@ import { existsSync } from "fs";
 import { fileURLToPath } from "url";
 import type { CleanOptions, CleanResult } from "../types.js";
 
+// Detect dev mode: .ts source files exist alongside this module
+const isDev = existsSync(fileURLToPath(new URL("../cleaners/system.ts", import.meta.url)));
+
 const workerScript = `
 import { parentPort, workerData } from "worker_threads";
 console.log = () => {};
@@ -20,45 +23,16 @@ run();
 `;
 
 /**
- * Resolve a relative import path (e.g. "../cleaners/system.js") to an
- * absolute file:// URL that works in both dev (tsx, .ts files) and
- * production (tsup-bundled, .js files).
- */
-function resolveCleanerUrl(relativeImport: string): string {
-  // First try: resolve as-is (.js) relative to this file
-  const jsUrl = new URL(relativeImport, import.meta.url);
-  const jsPath = fileURLToPath(jsUrl);
-  if (existsSync(jsPath)) return jsUrl.href;
-
-  // Second try: swap .js -> .ts for dev mode (tsx)
-  const tsUrl = new URL(relativeImport.replace(/\.js$/, ".ts"), import.meta.url);
-  const tsPath = fileURLToPath(tsUrl);
-  if (existsSync(tsPath)) return tsUrl.href;
-
-  // Fallback: return the .js URL and let the worker report the error
-  return jsUrl.href;
-}
-
-/**
- * Runs a cleaner in a Worker thread so the main event loop stays free
- * for UI updates (spinner animation, screen redraws).
+ * Runs a cleaner in a Worker thread (production only).
+ * In production, all files are bundled .js so resolution works.
  */
 function runInWorker(importPath: string, options: Record<string, unknown>): Promise<CleanResult> {
   return new Promise((resolve) => {
-    const absPath = resolveCleanerUrl(importPath);
-
-    // Detect if we're running under tsx (dev mode) by checking process.execArgv
-    // or the resolved path ending in .ts. If so, pass tsx's loader to the worker
-    // so it can resolve .js -> .ts imports within cleaner modules.
-    const isTsxDev = absPath.endsWith(".ts") || process.execArgv.some(
-      (a) => a.includes("tsx") || a.includes("ts-node"),
-    );
-    const execArgv = isTsxDev ? ["--import", "tsx"] : [];
+    const absPath = new URL(importPath, import.meta.url).href;
 
     const worker = new Worker(workerScript, {
       eval: true,
       workerData: { importPath: absPath, options },
-      execArgv,
     });
 
     let resolved = false;
@@ -87,6 +61,36 @@ function runInWorker(importPath: string, options: Record<string, unknown>): Prom
       }
     });
   });
+}
+
+/**
+ * Runs a cleaner directly on the main thread (dev mode only).
+ * The spinner will freeze during spawnSync calls, but all module
+ * resolution works correctly under tsx.
+ */
+async function runDirect(importPath: string, options: Record<string, unknown>): Promise<CleanResult> {
+  const origLog = console.log;
+  const origWarn = console.warn;
+  try {
+    console.log = () => {};
+    console.warn = () => {};
+    const cleaner = await import(importPath) as { clean: (opts: any) => Promise<CleanResult> };
+    return await cleaner.clean(options);
+  } finally {
+    console.log = origLog;
+    console.warn = origWarn;
+  }
+}
+
+/**
+ * Runs a cleaner module. Uses Worker threads in production (non-blocking
+ * spinner) and direct imports in dev mode (correct tsx resolution).
+ */
+function runModule(importPath: string, options: Record<string, unknown>): Promise<CleanResult> {
+  if (isDev) {
+    return runDirect(importPath, options);
+  }
+  return runInWorker(importPath, options);
 }
 
 export interface ModuleScanResult {
@@ -129,8 +133,7 @@ export function getModuleList(): ModuleDef[] {
 
 /**
  * Runs all cleaners in dry-run + json mode to get reclaimable space
- * without deleting anything. Each cleaner runs in a Worker thread
- * so the main event loop stays free for UI updates.
+ * without deleting anything.
  */
 export async function scanAll(
   onProgress?: (moduleName: string) => void,
@@ -149,7 +152,7 @@ export async function scanAll(
   for (const mod of modules) {
     onProgress?.(mod.name);
     try {
-      const result = await runInWorker(mod.importPath, scanOpts);
+      const result = await runModule(mod.importPath, scanOpts);
       results.push({
         name: mod.name,
         key: mod.key,
@@ -175,7 +178,6 @@ export async function scanAll(
 
 /**
  * Runs specific cleaners (actual clean, not dry-run).
- * Each cleaner runs in a Worker thread.
  */
 export async function runClean(
   keys: string[],
@@ -196,7 +198,7 @@ export async function runClean(
   for (const mod of selected) {
     onProgress?.(mod.name, "start");
     try {
-      const result = await runInWorker(mod.importPath, cleanOpts);
+      const result = await runModule(mod.importPath, cleanOpts);
       results.push({
         name: mod.name,
         key: mod.key,
