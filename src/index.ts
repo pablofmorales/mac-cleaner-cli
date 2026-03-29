@@ -5,6 +5,8 @@ import { dirname, join } from "path";
 import chalk from "chalk";
 import { CleanOptions, CleanResult } from "./types.js";
 import { customHelpFormatter } from "./utils/helpFormatter.js";
+import { COMMAND_GROUPS, getGroupForCommand } from "./commandGroups.js";
+import { emitDeprecation } from "./utils/deprecation.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, "..", "package.json"), "utf8")) as { version: string };
@@ -13,7 +15,7 @@ const program = new Command();
 
 program
   .name("mac-cleaner")
-  .description("🧹 Clean dev caches on macOS — npm, Homebrew, Docker, Xcode, browsers, and more")
+  .description("Clean dev caches on macOS — npm, Homebrew, Docker, Xcode, browsers, and more")
   .version(pkg.version)
   .configureHelp({ formatHelp: (cmd, helper) => customHelpFormatter(cmd, helper) });
 
@@ -43,418 +45,93 @@ function addCleanOptions(cmd: Command): Command {
     .option("--secure-delete", "Overwrite files with zeros before deletion (macOS only, files only)", false);
 }
 
-// ─── clean <subcommand> group ───────────────────────────────────────────────
+// ─── Cleaner definitions (single source of truth) ──────────────────────────
 
-const cleanCmd = program
-  .command("clean")
-  .description("Clean specific cache categories");
+interface CleanerDef {
+  name: string;
+  description: string;
+  importPath: string;
+  extraOptions?: (cmd: Command) => Command;
+}
 
-// clean system
-addCleanOptions(
-  cleanCmd
-    .command("system")
-    .description("Clean ~/Library/Caches, /tmp, and system logs")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean }) => {
-  const { clean } = await import("./cleaners/system.js");
-  const result = await clean(opts as CleanOptions);
-  outputResult(result, opts.json);
-  process.exit(result.ok ? 0 : 1);
-});
+const CLEANERS: Record<string, CleanerDef> = {
+  system:            { name: "system",          description: "Clean ~/Library/Caches, /tmp, and system logs",                                      importPath: "./cleaners/system.js" },
+  brew:              { name: "brew",            description: "Run brew cleanup and autoremove",                                                     importPath: "./cleaners/brew.js" },
+  node:              { name: "node",            description: "Clean npm/yarn/pnpm caches and orphan node_modules",                                  importPath: "./cleaners/node.js",
+    extraOptions: (cmd) => cmd.option("--include-orphans", "Also delete orphan node_modules (use carefully in monorepos)", false),
+  },
+  browser:           { name: "browser",         description: "Clean Chrome, Firefox, Safari, Arc, and Brave caches",                                importPath: "./cleaners/browser.js" },
+  docker:            { name: "docker",          description: "Prune Docker containers, images, volumes, and build cache",                           importPath: "./cleaners/docker.js" },
+  xcode:             { name: "xcode",           description: "Clean Xcode DerivedData, device support files, and simulators",                       importPath: "./cleaners/xcode.js" },
+  cloud:             { name: "cloud",           description: "Clean iCloud, Dropbox, Google Drive, and OneDrive cache directories",                 importPath: "./cleaners/cloud.js" },
+  mail:              { name: "mail",            description: "Clean cached mail attachments and downloads from Apple Mail",                          importPath: "./cleaners/mail.js" },
+  "mobile-backups":  { name: "mobile-backups",  description: "Clean old iOS/iPadOS device backups",                                                 importPath: "./cleaners/mobile.js" },
+  all:               { name: "all",             description: "Run all cleaners in sequence with space recovery summary",                            importPath: "./cleaners/all.js" },
+  privacy:           { name: "privacy",         description: "Remove recent files lists, Finder recents, and XDG recent files",                     importPath: "./cleaners/privacy.js" },
+  keychain:          { name: "keychain",        description: "Audit macOS keychain entries (read-only -- nothing deleted)",                          importPath: "./cleaners/keychain.js" },
+  maintain:          { name: "maintain",        description: "Run macOS maintenance tasks (DNS flush, Spotlight rebuild, disk permissions, etc.)",   importPath: "./cleaners/maintain.js" },
+  startup:           { name: "startup",         description: "List and inspect Launch Agents and startup items (read-only audit)",                   importPath: "./cleaners/startup.js" },
+  apps:              { name: "apps",            description: "Find and remove leftover files from uninstalled applications",                        importPath: "./cleaners/apps.js" },
+  "large-files":     { name: "large-files",     description: "Find and remove large files (>100MB) not accessed recently",                          importPath: "./cleaners/largefiles.js",
+    extraOptions: (cmd) => cmd
+      .option("--min-size <size>", "Minimum file size threshold (e.g. 100M, 1G)", "100M")
+      .option("--older-than <days>", "Only include files not accessed in this many days", "90"),
+  },
+  duplicates:        { name: "duplicates",      description: "Find and remove duplicate files in ~/Downloads, ~/Documents, ~/Desktop",              importPath: "./cleaners/duplicates.js",
+    extraOptions: (cmd) => cmd.option("--min-size <size>", "Minimum file size to consider (e.g. 1M, 500K)", "1M"),
+  },
+};
 
-// clean brew
-addCleanOptions(
-  cleanCmd
-    .command("brew")
-    .description("Run brew cleanup and autoremove")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean }) => {
-  const { clean } = await import("./cleaners/brew.js");
-  const result = await clean(opts as CleanOptions);
-  outputResult(result, opts.json);
-  process.exit(result.ok ? 0 : 1);
-});
+// ─── Helper: register a cleaner command on a parent ────────────────────────
 
-// clean node
-addCleanOptions(
-  cleanCmd
-    .command("node")
-    .description("Clean npm/yarn/pnpm caches and orphan node_modules")
-    .option("--include-orphans", "Also delete orphan node_modules (use carefully in monorepos)", false)
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; includeOrphans: boolean }) => {
-  const { clean } = await import("./cleaners/node.js");
-  const result = await clean(opts);
-  outputResult(result, opts.json);
-  process.exit(result.ok ? 0 : 1);
-});
+function registerCleaner(
+  parent: Command,
+  def: CleanerDef,
+  opts?: { hidden?: boolean; deprecatedFrom?: string },
+): void {
+  let cmd = opts?.hidden
+    ? parent.command(def.name, { hidden: true }).description(def.description)
+    : parent.command(def.name).description(def.description);
+  cmd = addCleanOptions(cmd);
+  if (def.extraOptions) cmd = def.extraOptions(cmd);
+  cmd.action(async (actionOpts: Record<string, any>) => {
+    if (opts?.deprecatedFrom) {
+      const group = getGroupForCommand(def.name);
+      emitDeprecation(opts.deprecatedFrom, `${group} ${def.name}`);
+    }
+    const { clean } = await import(def.importPath);
+    const result = await clean(actionOpts as CleanOptions);
+    // all.ts handles its own JSON output (per-module breakdown)
+    if (def.name === "all") {
+      if (!actionOpts.json) outputResult(result, false);
+    } else {
+      outputResult(result, actionOpts.json);
+    }
+    process.exit(result.ok ? 0 : 1);
+  });
+}
 
-// clean browser
-addCleanOptions(
-  cleanCmd
-    .command("browser")
-    .description("Clean Chrome, Firefox, Safari, Arc, and Brave caches")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean }) => {
-  const { clean } = await import("./cleaners/browser.js");
-  const result = await clean(opts as CleanOptions);
-  outputResult(result, opts.json);
-  process.exit(result.ok ? 0 : 1);
-});
+// ─── Register group commands ───────────────────────────────────────────────
 
-// clean docker
-addCleanOptions(
-  cleanCmd
-    .command("docker")
-    .description("Prune Docker containers, images, volumes, and build cache")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean }) => {
-  const { clean } = await import("./cleaners/docker.js");
-  const result = await clean(opts as CleanOptions);
-  outputResult(result, opts.json);
-  process.exit(result.ok ? 0 : 1);
-});
+for (const [groupName, groupDef] of Object.entries(COMMAND_GROUPS)) {
+  const groupCmd = program.command(groupName).description(groupDef.description);
 
-// clean xcode
-addCleanOptions(
-  cleanCmd
-    .command("xcode")
-    .description("Clean Xcode DerivedData, device support files, and simulators")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean }) => {
-  const { clean } = await import("./cleaners/xcode.js");
-  const result = await clean(opts as CleanOptions);
-  outputResult(result, opts.json);
-  process.exit(result.ok ? 0 : 1);
-});
+  for (const cmdName of groupDef.commands) {
+    // scan and disk-usage have custom action signatures, handled separately
+    if (cmdName === "scan" || cmdName === "disk-usage") continue;
 
-// clean keychain
-addCleanOptions(
-  cleanCmd
-    .command("keychain")
-    .description("Audit macOS keychain entries (read-only — nothing deleted)")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
-  const { clean } = await import("./cleaners/keychain.js");
-  const result = await clean(opts as CleanOptions);
-  outputResult(result, opts.json);
-  process.exit(result.ok ? 0 : 1);
-});
+    const def = CLEANERS[cmdName];
+    if (!def) continue;
 
-// clean privacy
-addCleanOptions(
-  cleanCmd
-    .command("privacy")
-    .description("Remove recent files lists, Finder recents, and XDG recent files")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
-  const { clean } = await import("./cleaners/privacy.js");
-  const result = await clean(opts as CleanOptions);
-  outputResult(result, opts.json);
-  process.exit(result.ok ? 0 : 1);
-});
+    registerCleaner(groupCmd, def);
+  }
+}
 
-// clean mobile-backups
-addCleanOptions(
-  cleanCmd
-    .command("mobile-backups")
-    .description("Clean old iOS/iPadOS device backups")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
-  const { clean } = await import("./cleaners/mobile.js");
-  const result = await clean(opts as CleanOptions);
-  outputResult(result, opts.json);
-  process.exit(result.ok ? 0 : 1);
-});
+// ─── Register scan under protection group ──────────────────────────────────
 
-// clean maintain
-addCleanOptions(
-  cleanCmd
-    .command("maintain")
-    .description("Run macOS maintenance tasks (DNS flush, Spotlight rebuild, disk permissions, etc.)")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
-  const { clean } = await import("./cleaners/maintain.js");
-  const result = await clean(opts as CleanOptions);
-  outputResult(result, opts.json);
-  process.exit(result.ok ? 0 : 1);
-});
+const protectionCmd = program.commands.find((c) => c.name() === "protection")!;
 
-// clean large-files
-addCleanOptions(
-  cleanCmd
-    .command("large-files")
-    .description("Find and remove large files (>100MB) not accessed recently")
-    .option("--min-size <size>", "Minimum file size threshold (e.g. 100M, 1G)", "100M")
-    .option("--older-than <days>", "Only include files not accessed in this many days", "90")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean; minSize: string; olderThan: string }) => {
-  const { clean } = await import("./cleaners/largefiles.js");
-  const result = await clean({ ...opts, minSize: opts.minSize, olderThan: opts.olderThan } as any);
-  outputResult(result, opts.json);
-  process.exit(result.ok ? 0 : 1);
-});
-
-// clean startup
-addCleanOptions(
-  cleanCmd
-    .command("startup")
-    .description("List and inspect Launch Agents and startup items (read-only audit)")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
-  const { clean } = await import("./cleaners/startup.js");
-  const result = await clean(opts as CleanOptions);
-  outputResult(result, opts.json);
-  process.exit(result.ok ? 0 : 1);
-});
-
-// clean cloud
-addCleanOptions(
-  cleanCmd
-    .command("cloud")
-    .description("Clean iCloud, Dropbox, Google Drive, and OneDrive cache directories")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
-  const { clean } = await import("./cleaners/cloud.js");
-  const result = await clean(opts as CleanOptions);
-  outputResult(result, opts.json);
-  process.exit(result.ok ? 0 : 1);
-});
-
-// clean duplicates
-addCleanOptions(
-  cleanCmd
-    .command("duplicates")
-    .description("Find and remove duplicate files in ~/Downloads, ~/Documents, ~/Desktop")
-    .option("--min-size <size>", "Minimum file size to consider (e.g. 1M, 500K)", "1M")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; minSize: string }) => {
-  const { clean } = await import("./cleaners/duplicates.js");
-  const result = await clean(opts as any);
-  outputResult(result, opts.json);
-  process.exit(result.ok ? 0 : 1);
-});
-
-// clean mail
-addCleanOptions(
-  cleanCmd
-    .command("mail")
-    .description("Clean cached mail attachments and downloads from Apple Mail")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
-  const { clean } = await import("./cleaners/mail.js");
-  const result = await clean(opts as CleanOptions);
-  outputResult(result, opts.json);
-  process.exit(result.ok ? 0 : 1);
-});
-
-// clean apps
-addCleanOptions(
-  cleanCmd
-    .command("apps")
-    .description("Find and remove leftover files from uninstalled applications")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
-  const { clean } = await import("./cleaners/apps.js");
-  const result = await clean(opts as CleanOptions);
-  outputResult(result, opts.json);
-  process.exit(result.ok ? 0 : 1);
-});
-
-// clean all
-addCleanOptions(
-  cleanCmd
-    .command("all")
-    .description("Run all cleaners in sequence with space recovery summary")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
-  const { clean } = await import("./cleaners/all.js");
-  const result = await clean(opts as CleanOptions);
-  // all.ts handles its own JSON output (per-module breakdown); skip outputResult for JSON
-  if (!opts.json) outputResult(result, false);
-  process.exit(result.ok ? 0 : 1);
-});
-
-// ─── Top-level shorthands ───────────────────────────────────────────────────
-
-addCleanOptions(
-  program
-    .command("system")
-    .description("Remove system logs, temp files & caches")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean }) => {
-  const { clean } = await import("./cleaners/system.js");
-  const result = await clean(opts as CleanOptions);
-  outputResult(result, opts.json);
-  process.exit(result.ok ? 0 : 1);
-});
-
-addCleanOptions(
-  program
-    .command("brew")
-    .description("Clear Homebrew cache & old package versions")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean }) => {
-  const { clean } = await import("./cleaners/brew.js");
-  const result = await clean(opts as CleanOptions);
-  outputResult(result, opts.json);
-  process.exit(result.ok ? 0 : 1);
-});
-
-addCleanOptions(
-  program
-    .command("node")
-    .description("Wipe node_modules caches & npm/yarn/pnpm stores")
-    .option("--include-orphans", "Also delete orphan node_modules (use carefully in monorepos)", false)
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; includeOrphans: boolean }) => {
-  const { clean } = await import("./cleaners/node.js");
-  const result = await clean(opts);
-  outputResult(result, opts.json);
-  process.exit(result.ok ? 0 : 1);
-});
-
-addCleanOptions(
-  program
-    .command("browser")
-    .description("Remove browser caches (Chrome, Safari, Firefox, Arc)")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean }) => {
-  const { clean } = await import("./cleaners/browser.js");
-  const result = await clean(opts as CleanOptions);
-  outputResult(result, opts.json);
-  process.exit(result.ok ? 0 : 1);
-});
-
-addCleanOptions(
-  program
-    .command("docker")
-    .description("Delete unused images, containers & volumes")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean }) => {
-  const { clean } = await import("./cleaners/docker.js");
-  const result = await clean(opts as CleanOptions);
-  outputResult(result, opts.json);
-  process.exit(result.ok ? 0 : 1);
-});
-
-addCleanOptions(
-  program
-    .command("xcode")
-    .description("Clear Xcode derived data & simulator caches")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean }) => {
-  const { clean } = await import("./cleaners/xcode.js");
-  const result = await clean(opts as CleanOptions);
-  outputResult(result, opts.json);
-  process.exit(result.ok ? 0 : 1);
-});
-
-addCleanOptions(
-  program
-    .command("keychain")
-    .description("Audit stale Keychain entries (read-only)")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
-  const { clean } = await import("./cleaners/keychain.js");
-  const result = await clean(opts as CleanOptions);
-  outputResult(result, opts.json);
-  process.exit(result.ok ? 0 : 1);
-});
-
-addCleanOptions(
-  program
-    .command("privacy")
-    .description("Clear app usage history & recent files")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
-  const { clean } = await import("./cleaners/privacy.js");
-  const result = await clean(opts as CleanOptions);
-  outputResult(result, opts.json);
-  process.exit(result.ok ? 0 : 1);
-});
-
-addCleanOptions(
-  program
-    .command("mobile-backups")
-    .description("Clean old iOS/iPadOS device backups")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
-  const { clean } = await import("./cleaners/mobile.js");
-  const result = await clean(opts as CleanOptions);
-  outputResult(result, opts.json);
-  process.exit(result.ok ? 0 : 1);
-});
-
-addCleanOptions(
-  program
-    .command("maintain")
-    .description("Run macOS maintenance tasks (DNS, Spotlight, permissions, etc.)")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
-  const { clean } = await import("./cleaners/maintain.js");
-  const result = await clean(opts as CleanOptions);
-  outputResult(result, opts.json);
-  process.exit(result.ok ? 0 : 1);
-});
-
-addCleanOptions(
-  program
-    .command("large-files")
-    .description("Find and remove large & old files in ~/Downloads, ~/Desktop, ~/Documents")
-    .option("--min-size <size>", "Minimum file size threshold (e.g. 100M, 1G)", "100M")
-    .option("--older-than <days>", "Only include files not accessed in this many days", "90")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean; minSize: string; olderThan: string }) => {
-  const { clean } = await import("./cleaners/largefiles.js");
-  const result = await clean({ ...opts, minSize: opts.minSize, olderThan: opts.olderThan } as any);
-  outputResult(result, opts.json);
-  process.exit(result.ok ? 0 : 1);
-});
-
-addCleanOptions(
-  program
-    .command("startup")
-    .description("List and inspect Launch Agents and startup items")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
-  const { clean } = await import("./cleaners/startup.js");
-  const result = await clean(opts as CleanOptions);
-  outputResult(result, opts.json);
-  process.exit(result.ok ? 0 : 1);
-});
-
-addCleanOptions(
-  program
-    .command("cloud")
-    .description("Clean cloud storage caches (iCloud, Dropbox, Google Drive, OneDrive)")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
-  const { clean } = await import("./cleaners/cloud.js");
-  const result = await clean(opts as CleanOptions);
-  outputResult(result, opts.json);
-  process.exit(result.ok ? 0 : 1);
-});
-
-addCleanOptions(
-  program
-    .command("duplicates")
-    .description("Find and remove duplicate files")
-    .option("--min-size <size>", "Minimum file size to consider (e.g. 1M, 500K)", "1M")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; minSize: string }) => {
-  const { clean } = await import("./cleaners/duplicates.js");
-  const result = await clean(opts as any);
-  outputResult(result, opts.json);
-  process.exit(result.ok ? 0 : 1);
-});
-
-addCleanOptions(
-  program
-    .command("mail")
-    .description("Clean cached mail attachments & downloads")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
-  const { clean } = await import("./cleaners/mail.js");
-  const result = await clean(opts as CleanOptions);
-  outputResult(result, opts.json);
-  process.exit(result.ok ? 0 : 1);
-});
-
-addCleanOptions(
-  program
-    .command("apps")
-    .description("Find & remove leftover files from uninstalled apps")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
-  const { clean } = await import("./cleaners/apps.js");
-  const result = await clean(opts as CleanOptions);
-  outputResult(result, opts.json);
-  process.exit(result.ok ? 0 : 1);
-});
-
-addCleanOptions(
-  program
-    .command("all")
-    .description("Clean everything at once (safe defaults)")
-).action(async (opts: { dryRun: boolean; json: boolean; verbose: boolean; noSudo: boolean; yes: boolean; secureDelete: boolean }) => {
-  const { clean } = await import("./cleaners/all.js");
-  const result = await clean(opts as CleanOptions);
-  // all.ts handles its own JSON output (per-module breakdown); skip outputResult for JSON
-  if (!opts.json) outputResult(result, false);
-  process.exit(result.ok ? 0 : 1);
-});
-
-// ─── scan ──────────────────────────────────────────────────────────────────
-
-program
+protectionCmd
   .command("scan")
   .description("Scan caches and config files for accidentally exposed secrets (does not delete)")
   .option("--json", "Output results as JSON", false)
@@ -465,7 +142,74 @@ program
     if (opts.json) {
       console.log(JSON.stringify({ ok: result.ok, data: { findings: result.findings, scannedFiles: result.scannedFiles }, error: result.errors.length ? result.errors : null }));
     }
-    process.exit(result.findings.length > 0 ? 1 : 0); // non-zero exit when secrets found (CI-friendly)
+    process.exit(result.findings.length > 0 ? 1 : 0);
+  });
+
+// ─── Register disk-usage under files group ─────────────────────────────────
+
+const filesCmd = program.commands.find((c) => c.name() === "files")!;
+
+filesCmd
+  .command("disk-usage")
+  .description("Show visual breakdown of disk usage by directory (Space Lens)")
+  .argument("[path]", "Directory to scan (default: home directory)")
+  .option("--json", "Output results as JSON", false)
+  .action(async (pathArg: string | undefined, opts: { json: boolean }) => {
+    const { runDiskUsage } = await import("./commands/diskusage.js");
+    await runDiskUsage({ json: opts.json, path: pathArg });
+  });
+
+// ─── Deprecated top-level aliases ──────────────────────────────────────────
+
+for (const [cmdName, def] of Object.entries(CLEANERS)) {
+  registerCleaner(program, def, { hidden: true, deprecatedFrom: cmdName });
+}
+
+// Deprecated top-level scan
+program.command("scan", { hidden: true })
+  .description("Scan for secrets")
+  .option("--json", "Output results as JSON", false)
+  .option("-v, --verbose", "Show redacted previews of each finding", false)
+  .action(async (opts: { json: boolean; verbose: boolean }) => {
+    emitDeprecation("scan", "protection scan");
+    const { scan } = await import("./cleaners/secrets.js");
+    const result = await scan(opts);
+    if (opts.json) {
+      console.log(JSON.stringify({ ok: result.ok, data: { findings: result.findings, scannedFiles: result.scannedFiles }, error: result.errors.length ? result.errors : null }));
+    }
+    process.exit(result.findings.length > 0 ? 1 : 0);
+  });
+
+// Deprecated top-level disk-usage
+program.command("disk-usage", { hidden: true })
+  .description("Show visual breakdown of disk usage by directory (Space Lens)")
+  .argument("[path]", "Directory to scan (default: home directory)")
+  .option("--json", "Output results as JSON", false)
+  .action(async (pathArg: string | undefined, opts: { json: boolean }) => {
+    emitDeprecation("disk-usage", "files disk-usage");
+    const { runDiskUsage } = await import("./commands/diskusage.js");
+    await runDiskUsage({ json: opts.json, path: pathArg });
+  });
+
+// Deprecated `clean` parent command
+const cleanCmd = program.command("clean", { hidden: true }).description("Clean specific cache categories");
+for (const [cmdName, def] of Object.entries(CLEANERS)) {
+  registerCleaner(cleanCmd, def, { deprecatedFrom: `clean ${cmdName}` });
+}
+
+// Deprecated clean scan
+cleanCmd.command("scan")
+  .description("Scan for secrets")
+  .option("--json", "Output results as JSON", false)
+  .option("-v, --verbose", "Show redacted previews of each finding", false)
+  .action(async (opts: { json: boolean; verbose: boolean }) => {
+    emitDeprecation("clean scan", "protection scan");
+    const { scan } = await import("./cleaners/secrets.js");
+    const result = await scan(opts);
+    if (opts.json) {
+      console.log(JSON.stringify({ ok: result.ok, data: { findings: result.findings, scannedFiles: result.scannedFiles }, error: result.errors.length ? result.errors : null }));
+    }
+    process.exit(result.findings.length > 0 ? 1 : 0);
   });
 
 // ─── upgrade ───────────────────────────────────────────────────────────────
@@ -477,18 +221,6 @@ program
   .action(async (opts: { json: boolean }) => {
     const { runUpgrade } = await import("./commands/upgrade.js");
     await runUpgrade(opts);
-  });
-
-// ─── disk-usage ─────────────────────────────────────────────────────────────
-
-program
-  .command("disk-usage")
-  .description("Show visual breakdown of disk usage by directory (Space Lens)")
-  .argument("[path]", "Directory to scan (default: home directory)")
-  .option("--json", "Output results as JSON", false)
-  .action(async (pathArg: string | undefined, opts: { json: boolean }) => {
-    const { runDiskUsage } = await import("./commands/diskusage.js");
-    await runDiskUsage({ json: opts.json, path: pathArg });
   });
 
 // ─── status ─────────────────────────────────────────────────────────────────
@@ -537,7 +269,7 @@ if (!hasCommand && !isVersionFlag && process.stdout.isTTY) {
       const latest = await getLatestVersionCached(2500);
       if (latest && isNewer(pkg.version, latest)) {
         console.log(
-          `\n💡 ${chalk.bold("New version available:")} ${chalk.gray(pkg.version)} → ${chalk.green(latest)}` +
+          `\n${chalk.bold("New version available:")} ${chalk.gray(pkg.version)} -> ${chalk.green(latest)}` +
           `\n   Run: ${chalk.bold("npm install -g @blackasteroid/mac-cleaner-cli")} to update\n`
         );
       }
