@@ -36,7 +36,6 @@ const COMMANDS = {
   OTHER: [
     { name: "upgrade",         desc: "Update mac-cleaner to the latest version" },
     { name: "status",          desc: "Show system health overview" },
-    { name: "menu",            desc: "Launch interactive TUI dashboard" },
     { name: "help [command]",  desc: "Show help for a specific command" },
   ],
 };

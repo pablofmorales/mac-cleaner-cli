@@ -234,29 +234,12 @@ program
     await runStatus(opts);
   });
 
-// ─── TUI mode ──────────────────────────────────────────────────────────────
-
-program
-  .command("menu")
-  .description("Launch interactive TUI dashboard")
-  .action(async () => {
-    const { launchTui } = await import("./tui/index.js");
-    await launchTui();
-  });
-
 // ─── Parse & default behavior ───────────────────────────────────────────────
 
 const args = process.argv.slice(2);
-const hasCommand = args.length > 0 && !args[0].startsWith("-");
 const isVersionFlag = args.includes("--version") || args.includes("-V");
 
-if (!hasCommand && !isVersionFlag && process.stdout.isTTY) {
-  // No subcommand given in a TTY -- launch TUI
-  void (async () => {
-    const { launchTui } = await import("./tui/index.js");
-    await launchTui();
-  })();
-} else {
+{
   program.parse(process.argv);
 
   // Version check hint on --help
