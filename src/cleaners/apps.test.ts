@@ -1,13 +1,12 @@
 import { describe, it, expect } from "vitest";
-import { clean } from "./all.js";
+import * as os from "os";
+import { clean } from "./apps.js";
 
-// clean all runs every module sequentially including docker/keychain which each
-// have spawnSync('which') calls with 5s timeouts in CI. Use generous timeouts.
-describe("clean all", () => {
-  it("returns ok:true in dry-run across all modules", async () => {
+describe("apps cleaner", { timeout: 30_000 }, () => {
+  it("returns ok:true in dry-run even if no orphans are found", async () => {
     const result = await clean({ dryRun: true, json: true });
     expect(result.ok).toBe(true);
-  }, 90000);
+  });
 
   it("--json mode returns parseable CleanResult structure", async () => {
     const result = await clean({ dryRun: true, json: true });
@@ -21,11 +20,16 @@ describe("clean all", () => {
     expect(typeof result.freed).toBe("number");
     expect(Array.isArray(result.errors)).toBe(true);
     expect(() => JSON.stringify(result)).not.toThrow();
-  }, 90000);
+  });
 
-  it("aggregates results from multiple modules (paths is array, freed >= 0)", async () => {
+  it("paths use os.homedir() dynamically", async () => {
     const result = await clean({ dryRun: true, json: true });
-    expect(result.freed).toBeGreaterThanOrEqual(0);
-    expect(result.paths.length).toBeGreaterThanOrEqual(0);
-  }, 90000);
+    const home = os.homedir();
+
+    for (const p of result.paths) {
+      if (p.includes("/Users/") || p.includes("/home/")) {
+        expect(p.startsWith(home)).toBe(true);
+      }
+    }
+  });
 });
