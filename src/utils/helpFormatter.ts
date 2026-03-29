@@ -4,23 +4,40 @@ import { Command, Help } from "commander";
 const DIVIDER = chalk.gray("─".repeat(61));
 
 const COMMANDS = {
-  CLEAN: [
-    { name: "all",      desc: "Clean everything at once (safe defaults)" },
-    { name: "system",   desc: "Remove system logs, temp files & caches" },
-    { name: "brew",     desc: "Clear Homebrew cache & old package versions" },
-    { name: "node",     desc: "Wipe node_modules caches & npm/yarn/pnpm stores" },
-    { name: "browser",  desc: "Remove browser caches (Chrome, Safari, Firefox, Arc)" },
-    { name: "docker",   desc: "Delete unused images, containers & volumes" },
-    { name: "xcode",    desc: "Clear Xcode derived data & simulator caches" },
-    { name: "keychain", desc: "Audit stale Keychain entries (read-only)" },
-    { name: "privacy",  desc: "Clear app usage history & recent files" },
-    { name: "scan",     desc: "Scan caches for accidentally exposed secrets" },
+  CLEANUP: [
+    { name: "all",             desc: "Clean everything at once (safe defaults)" },
+    { name: "system",          desc: "Remove system logs, temp files & caches" },
+    { name: "brew",            desc: "Clear Homebrew cache & old package versions" },
+    { name: "node",            desc: "Wipe node_modules caches & npm/yarn/pnpm stores" },
+    { name: "browser",         desc: "Remove browser caches (Chrome, Safari, Firefox, Arc)" },
+    { name: "docker",          desc: "Delete unused images, containers & volumes" },
+    { name: "xcode",           desc: "Clear Xcode derived data & simulator caches" },
+    { name: "cloud",           desc: "Clean cloud storage caches" },
+    { name: "mail",            desc: "Clean cached mail attachments & downloads" },
+    { name: "mobile-backups",  desc: "Clean old iOS/iPadOS device backups" },
   ],
-  MAINTENANCE: [
-    { name: "upgrade",  desc: "Update mac-cleaner to the latest version" },
+  PROTECTION: [
+    { name: "privacy",         desc: "Clear app usage history & recent files" },
+    { name: "keychain",        desc: "Audit stale Keychain entries (read-only)" },
+    { name: "scan",            desc: "Scan caches for accidentally exposed secrets" },
+  ],
+  SPEED: [
+    { name: "maintain",        desc: "DNS flush, Spotlight rebuild, purge RAM, etc." },
+    { name: "startup",         desc: "List & inspect Launch Agents (read-only)" },
+  ],
+  APPLICATIONS: [
+    { name: "apps",            desc: "Find & remove leftover files from uninstalled apps" },
+  ],
+  FILES: [
+    { name: "large-files",     desc: "Find and remove large & old files" },
+    { name: "duplicates",      desc: "Find and remove duplicate files" },
+    { name: "disk-usage",      desc: "Show visual disk usage breakdown (Space Lens)" },
   ],
   OTHER: [
-    { name: "help [command]", desc: "Show help for a specific command" },
+    { name: "upgrade",         desc: "Update mac-cleaner to the latest version" },
+    { name: "status",          desc: "Show system health overview" },
+    { name: "menu",            desc: "Launch interactive TUI dashboard" },
+    { name: "help [command]",  desc: "Show help for a specific command" },
   ],
 };
 
@@ -35,12 +52,14 @@ const COMMON_FLAGS = [
 ];
 
 const EXAMPLES = [
-  { cmd: "mac-cleaner all --dry-run",       comment: "# Preview full cleanup" },
-  { cmd: "mac-cleaner node --verbose",      comment: "# Clean node with details" },
-  { cmd: "mac-cleaner brew",                comment: "# Quick Homebrew cleanup" },
-  { cmd: "mac-cleaner all --json | jq .",   comment: "# JSON output for scripting" },
-  { cmd: "mac-cleaner scan",                comment: "# Check for leaked secrets" },
-  { cmd: "mac-cleaner upgrade",             comment: "# Update to latest version" },
+  { cmd: "mac-cleaner cleanup all --dry-run",       comment: "# Preview full cleanup" },
+  { cmd: "mac-cleaner cleanup node --verbose",      comment: "# Clean node with details" },
+  { cmd: "mac-cleaner cleanup brew",                comment: "# Quick Homebrew cleanup" },
+  { cmd: "mac-cleaner protection scan",             comment: "# Check for leaked secrets" },
+  { cmd: "mac-cleaner speed maintain",              comment: "# DNS flush, Spotlight, etc." },
+  { cmd: "mac-cleaner files disk-usage",            comment: "# Visual Space Lens" },
+  { cmd: "mac-cleaner cleanup all --json | jq .",   comment: "# JSON output for scripting" },
+  { cmd: "mac-cleaner upgrade",                     comment: "# Update to latest version" },
 ];
 
 function col(name: string, width: number): string {
@@ -66,7 +85,7 @@ export function customHelpFormatter(cmd: Command, _helper: Help): string {
 
   // ── Header ────────────────────────────────────────────────────────────────
   lines.push("");
-  lines.push(`${chalk.bold.cyan("🧹 mac-cleaner")} ${chalk.gray(version ? `v${version}` : "")}`);
+  lines.push(`${chalk.bold.cyan("mac-cleaner")} ${chalk.gray(version ? `v${version}` : "")}`);
   lines.push("");
   lines.push(chalk.italic.white("Clean dev caches on macOS — npm, Homebrew, Docker, Xcode, browsers, and more"));
   lines.push("");
@@ -74,14 +93,17 @@ export function customHelpFormatter(cmd: Command, _helper: Help): string {
   // ── Usage ─────────────────────────────────────────────────────────────────
   lines.push(chalk.bold.yellow("USAGE"));
   lines.push("");
-  lines.push(`  mac-cleaner ${chalk.bold.cyan("<command>")} ${chalk.gray("[options]")}`);
+  lines.push(`  mac-cleaner ${chalk.bold.cyan("<group> <command>")} ${chalk.gray("[options]")}`);
   lines.push("");
 
   // ── Commands ──────────────────────────────────────────────────────────────
   lines.push(chalk.bold.yellow("COMMANDS"));
   lines.push("");
-  lines.push(renderCommandGroup("CLEAN", COMMANDS.CLEAN));
-  lines.push(renderCommandGroup("MAINTENANCE", COMMANDS.MAINTENANCE));
+  lines.push(renderCommandGroup("CLEANUP", COMMANDS.CLEANUP));
+  lines.push(renderCommandGroup("PROTECTION", COMMANDS.PROTECTION));
+  lines.push(renderCommandGroup("SPEED", COMMANDS.SPEED));
+  lines.push(renderCommandGroup("APPLICATIONS", COMMANDS.APPLICATIONS));
+  lines.push(renderCommandGroup("FILES", COMMANDS.FILES));
   lines.push(renderCommandGroup("OTHER", COMMANDS.OTHER));
 
   // ── Options ───────────────────────────────────────────────────────────────
