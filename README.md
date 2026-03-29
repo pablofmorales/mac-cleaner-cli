@@ -112,7 +112,6 @@ Commands are organized into groups by utility:
 |------------|--------------|
 | `upgrade`  | Update mac-cleaner to the latest version |
 | `status`   | Show system health overview |
-| `menu`     | Launch interactive TUI dashboard |
 
 ---
 
