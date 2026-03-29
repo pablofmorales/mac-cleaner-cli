@@ -48,29 +48,71 @@ Requires **Node.js 20+** and **macOS**.
 ## Quick start
 
 ```bash
-mac-cleaner all --dry-run    # See what would be cleaned (safe preview)
-mac-cleaner all              # Clean everything
-mac-cleaner system           # Just system caches and logs
-mac-cleaner node --verbose   # Clean npm/yarn/pnpm with details
+mac-cleaner cleanup all --dry-run    # See what would be cleaned (safe preview)
+mac-cleaner cleanup all              # Clean everything
+mac-cleaner cleanup system           # Just system caches and logs
+mac-cleaner cleanup node --verbose   # Clean npm/yarn/pnpm with details
+mac-cleaner speed maintain           # DNS flush, Spotlight rebuild, etc.
+mac-cleaner protection scan          # Check for leaked secrets
 ```
 
 ---
 
 ## Commands
 
-| Command      | What it cleans |
-|--------------|----------------|
-| `all`        | Everything at once — safe defaults |
-| `system`     | System logs, temp files & caches |
-| `brew`       | Homebrew cache & old package versions |
-| `node`       | npm/yarn/pnpm caches + orphaned `node_modules` |
-| `browser`    | Chrome, Firefox, Safari, Arc, Brave caches |
-| `docker`     | Unused containers, images, volumes, build cache |
-| `xcode`      | Derived data, device support files, simulators |
-| `keychain`   | Stale Keychain entry audit (read-only) |
-| `privacy`    | Recent files lists, Finder recents |
-| `scan`       | Detect accidentally exposed secrets in caches |
-| `upgrade`    | Update mac-cleaner to the latest version |
+Commands are organized into groups by utility:
+
+### Cleanup -- free disk space
+
+| Command                    | What it cleans |
+|----------------------------|----------------|
+| `cleanup all`              | Everything at once -- safe defaults |
+| `cleanup system`           | System logs, temp files & caches |
+| `cleanup brew`             | Homebrew cache & old package versions |
+| `cleanup node`             | npm/yarn/pnpm caches + orphaned `node_modules` |
+| `cleanup browser`          | Chrome, Firefox, Safari, Arc, Brave caches |
+| `cleanup docker`           | Unused containers, images, volumes, build cache |
+| `cleanup xcode`            | Derived data, device support files, simulators |
+| `cleanup cloud`            | Cloud storage caches (iCloud, Dropbox, etc.) |
+| `cleanup mail`             | Cached mail attachments and downloads |
+| `cleanup mobile-backups`   | Old iOS/iPadOS device backups |
+
+### Protection -- security & privacy
+
+| Command                | What it does |
+|------------------------|--------------|
+| `protection privacy`  | Clear recent files lists, Finder recents |
+| `protection keychain`  | Audit stale Keychain entries (read-only) |
+| `protection scan`      | Detect accidentally exposed secrets in caches |
+
+### Speed -- performance tuning
+
+| Command            | What it does |
+|--------------------|--------------|
+| `speed maintain`   | DNS flush, Spotlight rebuild, purge RAM, font caches |
+| `speed startup`    | List and inspect Launch Agents (read-only) |
+
+### Applications
+
+| Command              | What it does |
+|----------------------|--------------|
+| `applications apps`  | Find & remove leftover files from uninstalled apps |
+
+### Files -- discovery & management
+
+| Command              | What it does |
+|----------------------|--------------|
+| `files large-files`  | Find and remove large & old files |
+| `files duplicates`   | Find and remove duplicate files |
+| `files disk-usage`   | Visual disk usage breakdown (Space Lens) |
+
+### Other
+
+| Command    | What it does |
+|------------|--------------|
+| `upgrade`  | Update mac-cleaner to the latest version |
+| `status`   | Show system health overview |
+| `menu`     | Launch interactive TUI dashboard |
 
 ---
 
@@ -92,20 +134,38 @@ mac-cleaner node --verbose   # Clean npm/yarn/pnpm with details
 
 ```bash
 # Preview a full cleanup without deleting anything
-mac-cleaner all --dry-run
+mac-cleaner cleanup all --dry-run
 
 # Clean everything and pipe results to a log
-mac-cleaner all --json | tee cleanup.log | jq .
+mac-cleaner cleanup all --json | tee cleanup.log | jq .
 
 # Clean node caches and show details
-mac-cleaner node --verbose
+mac-cleaner cleanup node --verbose
 
-# Scan for accidentally exposed secrets (API keys, tokens) before cleaning
-mac-cleaner scan
+# Scan for accidentally exposed secrets (API keys, tokens)
+mac-cleaner protection scan
+
+# Run maintenance tasks (DNS flush, Spotlight rebuild)
+mac-cleaner speed maintain
 
 # Update mac-cleaner itself
 mac-cleaner upgrade
 ```
+
+---
+
+## Migrating from flat commands
+
+Previous flat commands (`mac-cleaner system`, `mac-cleaner clean system`) still work but show a deprecation warning. Update your scripts to use the new grouped syntax:
+
+| Old command               | New command                  |
+|---------------------------|------------------------------|
+| `mac-cleaner system`      | `mac-cleaner cleanup system` |
+| `mac-cleaner clean brew`  | `mac-cleaner cleanup brew`   |
+| `mac-cleaner scan`        | `mac-cleaner protection scan`|
+| `mac-cleaner disk-usage`  | `mac-cleaner files disk-usage`|
+
+Set `MAC_CLEANER_NO_DEPRECATION=1` to suppress warnings.
 
 ---
 
