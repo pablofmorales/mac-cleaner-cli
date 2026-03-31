@@ -5,7 +5,7 @@ Thanks for taking the time to contribute. Here's what you need to know.
 ## Getting started
 
 ```bash
-git clone https://github.com/BlackAsteroid/mac-cleaner-cli.git
+git clone https://github.com/pablofmorales/mac-cleaner-cli.git
 cd mac-cleaner-cli
 npm install
 npm run build
@@ -67,4 +67,4 @@ If you find a security vulnerability, **do not open a public issue**. See [SECUR
 
 ## Questions
 
-Open a [GitHub Discussion](https://github.com/BlackAsteroid/mac-cleaner-cli/discussions) for anything that isn't a bug or feature request.
+Open a [GitHub Discussion](https://github.com/pablofmorales/mac-cleaner-cli/discussions) for anything that isn't a bug or feature request.

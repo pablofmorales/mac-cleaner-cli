@@ -13,7 +13,7 @@ We actively maintain the latest major release. Older versions do not receive sec
 
 **Do not open a public issue for security vulnerabilities.**
 
-Report them privately by emailing the maintainers or opening a [private security advisory](https://github.com/BlackAsteroid/mac-cleaner-cli/security/advisories/new) on GitHub.
+Report them privately by emailing the maintainers or opening a [private security advisory](https://github.com/pablofmorales/mac-cleaner-cli/security/advisories/new) on GitHub.
 
 Please include:
 - A clear description of the vulnerability

@@ -2,13 +2,13 @@
 
 A fast, safe CLI for cleaning macOS development caches. Reclaim gigabytes of disk space from npm, Homebrew, Docker, Xcode, browsers, and more — in seconds.
 
-[![Demo — click to watch full video](.github/assets/demo.gif)](https://github.com/BlackAsteroid/mac-cleaner-cli/releases/download/v1.5.5/demo.mp4)
+[![Demo — click to watch full video](.github/assets/demo.gif)](https://github.com/pablofmorales/mac-cleaner-cli/releases/download/v1.5.5/demo.mp4)
 
 
 
-[![npm version](https://img.shields.io/npm/v/@blackasteroid/mac-cleaner-cli?color=cyan&label=npm)](https://www.npmjs.com/package/@blackasteroid/mac-cleaner-cli)
-[![homebrew](https://img.shields.io/badge/homebrew-tap-orange)](https://github.com/BlackAsteroid/homebrew-tap)
-[![Build](https://github.com/BlackAsteroid/mac-cleaner-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/BlackAsteroid/mac-cleaner-cli/actions)
+[![npm version](https://img.shields.io/npm/v/@pablofmorales/mac-cleaner-cli?color=cyan&label=npm)](https://www.npmjs.com/package/@pablofmorales/mac-cleaner-cli)
+[![homebrew](https://img.shields.io/badge/homebrew-tap-orange)](https://github.com/pablofmorales/homebrew-tap)
+[![Build](https://github.com/pablofmorales/mac-cleaner-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/pablofmorales/mac-cleaner-cli/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
 ---
@@ -30,15 +30,15 @@ mac-cleaner all
 ### Homebrew (recommended)
 
 ```bash
-brew install BlackAsteroid/tap/mac-cleaner
+brew install pablofmorales/tap/mac-cleaner
 ```
 
-This taps the [BlackAsteroid/tap](https://github.com/BlackAsteroid/homebrew-tap) and installs `mac-cleaner` with all dependencies managed automatically.
+This taps the [pablofmorales/tap](https://github.com/pablofmorales/homebrew-tap) and installs `mac-cleaner` with all dependencies managed automatically.
 
 ### npm
 
 ```bash
-npm install -g @blackasteroid/mac-cleaner-cli
+npm install -g @pablofmorales/mac-cleaner-cli
 ```
 
 Requires **Node.js 20+** and **macOS**.
@@ -182,7 +182,7 @@ Set `MAC_CLEANER_NO_DEPRECATION=1` to suppress warnings.
 
 Pull requests are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
-Found a bug? [Open an issue](https://github.com/BlackAsteroid/mac-cleaner-cli/issues/new/choose).
+Found a bug? [Open an issue](https://github.com/pablofmorales/mac-cleaner-cli/issues/new/choose).
 
 ---
 
@@ -192,4 +192,4 @@ MIT — see [LICENSE](LICENSE).
 
 ---
 
-Made with ☕ by [BlackAsteroid](https://github.com/BlackAsteroid).
+Made with ☕ by [pablofmorales](https://github.com/pablofmorales).
