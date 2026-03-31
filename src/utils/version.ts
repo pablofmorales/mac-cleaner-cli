@@ -3,7 +3,7 @@ import * as os from "os";
 import * as path from "path";
 import { spawnSync } from "child_process";
 
-const PACKAGE_NAME = "@pablofmorales/mac-cleaner-cli";
+const PACKAGE_NAME = "@blackasteroid/mac-cleaner-cli";
 const CACHE_DIR = path.join(os.homedir(), ".mac-cleaner");
 const CACHE_FILE = path.join(CACHE_DIR, "last-version-check.json");
 const CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
@@ -94,7 +94,7 @@ export function isNewer(current: string, latest: string): boolean {
 const SEMVER_RE = /^\d+\.\d+\.\d+(?:-[a-zA-Z0-9._-]+)?(?:\+[a-zA-Z0-9._-]+)?$/;
 
 /**
- * Perform a live upgrade by running npm install -g @pablofmorales/mac-cleaner-cli@<version>.
+ * Perform a live upgrade by running npm install -g @blackasteroid/mac-cleaner-cli@<version>.
  * Returns { ok, error }.
  */
 export function runNpmUpgrade(targetVersion: string): { ok: boolean; error?: string } {

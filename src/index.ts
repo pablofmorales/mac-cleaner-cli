@@ -253,7 +253,7 @@ const isVersionFlag = args.includes("--version") || args.includes("-V");
       if (latest && isNewer(pkg.version, latest)) {
         console.log(
           `\n${chalk.bold("New version available:")} ${chalk.gray(pkg.version)} -> ${chalk.green(latest)}` +
-          `\n   Run: ${chalk.bold("npm install -g @pablofmorales/mac-cleaner-cli")} to update\n`
+          `\n   Run: ${chalk.bold("npm install -g @blackasteroid/mac-cleaner-cli")} to update\n`
         );
       }
     })();

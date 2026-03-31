@@ -1,5 +1,5 @@
 {
-  "name": "@pablofmorales/mac-cleaner-cli",
+  "name": "@blackasteroid/mac-cleaner-cli",
   "version": "0.1.0",
   "description": "🧹 Open-source macOS CLI to clean dev caches (npm, Homebrew, Docker, Xcode, system, browsers)",
   "type": "module",

@@ -6,7 +6,7 @@ A fast, safe CLI for cleaning macOS development caches. Reclaim gigabytes of dis
 
 
 
-[![npm version](https://img.shields.io/npm/v/@pablofmorales/mac-cleaner-cli?color=cyan&label=npm)](https://www.npmjs.com/package/@pablofmorales/mac-cleaner-cli)
+[![npm version](https://img.shields.io/npm/v/@blackasteroid/mac-cleaner-cli?color=cyan&label=npm)](https://www.npmjs.com/package/@blackasteroid/mac-cleaner-cli)
 [![homebrew](https://img.shields.io/badge/homebrew-tap-orange)](https://github.com/pablofmorales/homebrew-tap)
 [![Build](https://github.com/pablofmorales/mac-cleaner-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/pablofmorales/mac-cleaner-cli/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
@@ -38,7 +38,7 @@ This taps the [pablofmorales/tap](https://github.com/pablofmorales/homebrew-tap)
 ### npm
 
 ```bash
-npm install -g @pablofmorales/mac-cleaner-cli
+npm install -g @blackasteroid/mac-cleaner-cli
 ```
 
 Requires **Node.js 20+** and **macOS**.
