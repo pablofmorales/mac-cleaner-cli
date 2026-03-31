@@ -128,7 +128,7 @@ export function customHelpFormatter(cmd: Command, _helper: Help): string {
   lines.push("");
 
   // ── Docs ──────────────────────────────────────────────────────────────────
-  lines.push(`  ${chalk.underline.blue("https://github.com/BlackAsteroid/mac-cleaner-cli")}`);
+  lines.push(`  ${chalk.underline.blue("https://github.com/pablofmorales/mac-cleaner-cli")}`);
   lines.push("");
 
   return lines.join("\n");

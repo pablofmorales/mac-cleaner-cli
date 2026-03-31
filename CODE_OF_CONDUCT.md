@@ -18,7 +18,7 @@ We want this project to be welcoming to everyone. We're committed to making part
 
 ## Reporting issues
 
-If you witness or experience unacceptable behavior, report it by opening a [GitHub Issue](https://github.com/BlackAsteroid/mac-cleaner-cli/issues) marked as a Code of Conduct concern, or contact the maintainers directly.
+If you witness or experience unacceptable behavior, report it by opening a [GitHub Issue](https://github.com/pablofmorales/mac-cleaner-cli/issues) marked as a Code of Conduct concern, or contact the maintainers directly.
 
 We will review reports and take appropriate action — up to and including a permanent ban.
 
